@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Venta #{{ venta.secuencial }}</title>
+    <style>
+        body { font-family: sans-serif; font-size: 12px; }
+        .container { width: 95%; margin: 0 auto; }
+        .header h1, .header h2 { margin: 0; text-align: center; }
+        .details table, .items-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .details th, .details td, .items-table th, .items-table td { border: 1px solid #ddd; padding: 6px; }
+        .items-table th { background-color: #f2f2f2; }
+        .totals-section { float: right; width: 40%; margin-top: 20px; }
+        .totals-section table { width: 100%; }
+        .totals-section td { padding: 4px; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Factura de Venta</h1>
+            <h2>{{ venta.empresa.nombre }}</h2>
+        </div>
+
+        <div class="details">
+            <table>
+                <tr><th>Factura No:</th><td>{{ venta.secuencial }}</td><th>Fecha:</th><td>{{ venta.fecha_emision }}</td></tr>
+                <tr><th>Cliente:</th><td colspan="3">{{ venta.cliente.nombre }} ({{ venta.cliente.ruc }})</td></tr>
+            </table>
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr><th>Producto</th><th>Cantidad</th><th>Precio Unitario</th><th class="text-right">Subtotal</th></tr>
+            </thead>
+            <tbody>
+                {% for detalle in venta.detalles.all %}
+                <tr>
+                    <td>{{ detalle.producto.nombre }}</td>
+                    <td>{{ detalle.cantidad|floatformat:2 }}</td>
+                    <td>${{ detalle.precio_unitario|floatformat:2 }}</td>
+                    <td class="text-right">${{ detalle.precio_total_sin_impuesto|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="totals-section">
+            <table>
+                <tr>
+                    <td>Subtotal Sin Impuestos:</td>
+                    <td class="text-right">${{ venta.total_sin_impuestos|floatformat:2 }}</td>
+                </tr>
+                {% for impuesto in venta.total_con_impuestos.totalImpuesto %}
+                <tr>
+                    <td>IVA 15%:</td>
+                    <td class="text-right">${{ impuesto.valor }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="font-bold">
+                    <td>VALOR TOTAL:</td>
+                    <td class="text-right">${{ venta.importe_total|floatformat:2 }}</td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>

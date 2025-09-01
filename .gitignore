@@ -1,0 +1,22 @@
+# Entorno Virtual
+venv/
+env/
+.env
+
+# Archivos de Django
+db.sqlite3
+*.log
+*.pot
+*.pyc
+
+# Archivos de Medios y Estáticos (locales)
+/media/
+/staticfiles/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de IDE
+.idea/
+.vscode/

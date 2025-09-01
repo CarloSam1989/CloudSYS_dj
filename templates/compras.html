@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Compras{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        <h1 class="mt-4">Compras</h1>
+        <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Compras</li>
+        </ol>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-shopping-cart me-1"></i>
+                Listado de Compras
+                <button class="btn btn-primary btn-sm float-end" data-bs-toggle="modal" data-bs-target="#modalAgregarCompra">
+                    <i class="fa-solid fa-cart-plus"></i> Nueva Compra
+                </button>
+            </div>
+            <div class="card-body">
+                <table id="datatablesSimple">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Proveedor</th>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compra in compras %}
+                        <tr class="{% if compra.estado == 'N' %}table-secondary text-muted{% endif %}">
+                            <td>{{ compra.id }}</td>
+                            <td>{{ compra.proveedor.nombre }}</td>
+                            <td>{{ compra.fecha }}</td>
+                            <td>${{ compra.total|floatformat:2 }}</td>
+                            <td>
+                                {% if compra.estado == 'A' %}
+                                <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                <span class="badge bg-danger">Anulada</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'compra_pdf' compra.id %}" target="_blank" class="btn btn-info btn-sm" title="Ver PDF"><i class="fa-solid fa-file-pdf"></i></a>
+                                {% if compra.estado == 'A' %}
+                                <a href="{% url 'corregir_compra' compra.id %}" class="btn btn-warning btn-sm" title="Editar/Corregir"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'anular_compra' compra.id %}" class="btn btn-danger btn-sm" title="Anular Compra"><i class="fa-solid fa-ban"></i></a>
+                                {% else %}
+                                <a href="{% url 'restaurar_compra' compra.id %}" class="btn btn-success btn-sm" title="Restaurar Compra"><i class="fa-solid fa-rotate-left"></i></a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalAgregarCompra" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'compras' %}" id="formCompra">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Nueva Compra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor</label>
+                            <div class="input-group">
+                                {{ compra_form.proveedor }}
+                                <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalProveedor">+ Nuevo</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha</label>
+                            {{ compra_form.fecha }}
+                        </div>
+                    </div>
+                    <hr>
+                    <h6>Detalle de Productos</h6>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Producto</th>
+                                <th>Cantidad</th>
+                                <th>Costo Unitario</th>
+                                <th>Subtotal</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="detalle-compra-formset">
+                            {{ detalle_formset.management_form }}
+                            {% for form in detalle_formset %}
+                            <tr class="detalle-form">
+                                <td>{{ form.producto }}</td>
+                                <td>{{ form.cantidad }}</td>
+                                <td>{{ form.costo_unitario }}</td>
+                                <td><input type="text" class="form-control subtotal bg-light" readonly></td>
+                                <td><button type="button" class="btn btn-danger btn-sm delete-row" title="Eliminar Fila">X</button></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" id="add-row" class="btn btn-success btn-sm">+ Agregar Fila</button>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">Total Compra: <span id="total-compra" class="badge bg-dark">$0.00</span></h4>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Compra</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<table style="display: none;">
+    <tbody id="empty-form">
+        <tr class="detalle-form">
+            <td>{{ detalle_formset.empty_form.producto }}</td>
+            <td>{{ detalle_formset.empty_form.cantidad }}</td>
+            <td>{{ detalle_formset.empty_form.costo_unitario }}</td>
+            <td><input type="text" class="form-control subtotal bg-light" readonly></td>
+            <td><button type="button" class="btn btn-danger btn-sm delete-row" title="Eliminar Fila">X</button></td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="modal fade" id="modalProveedor" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formProveedor" method="post" action="{% url 'agregar_proveedor_ajax' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header"><h5 class="modal-title">Nuevo Proveedor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label class="form-label">Razón Social</label><input type="text" name="nombre" class="form-control" required></div>
+                <div class="mb-2"><label class="form-label">RUC</label><input type="text" name="ruc" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">Teléfono</label><input type="text" name="telefono" class="form-control"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button><button type="submit" class="btn btn-primary">Guardar</button></div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- OBTENER ELEMENTOS Y URLS ---
+    const buscarProductosUrl = "{% url 'buscar_productos_ajax' %}";
+    const buscarProveedoresUrl = "{% url 'buscar_proveedores_ajax' %}";
+    const formsetContainer = document.querySelector('#detalle-compra-formset');
+    const addRowBtn = document.querySelector('#add-row');
+    const totalFormsInput = document.querySelector('input[name*="-TOTAL_FORMS"]');
+    const emptyFormHtml = document.querySelector('#empty-form').innerHTML;
+    const totalCompraSpan = document.querySelector('#total-compra');
+
+    // --- CÁLCULO DE TOTALES ---
+    function calculateRowSubtotal(row) {
+        const cantidadInput = row.querySelector('input[name*="cantidad"]');
+        const precioInput = row.querySelector('input[name*="costo_unitario"]');
+        const subtotalInput = row.querySelector('.subtotal');
+        const cantidad = parseFloat(cantidadInput.value) || 0;
+        const precio = parseFloat(precioInput.value) || 0;
+        if(subtotalInput) subtotalInput.value = (cantidad * precio).toFixed(2);
+    }
+
+    function updateTotalCompra() {
+        let total = 0;
+        formsetContainer.querySelectorAll('.subtotal').forEach(input => {
+            const subtotal = parseFloat(input.value);
+            if (!isNaN(subtotal)) {
+                total += subtotal;
+            }
+        });
+        if(totalCompraSpan) totalCompraSpan.textContent = '$' + total.toFixed(2);
+    }
+
+    // --- INICIALIZACIÓN DE SELECT2 ---
+    function initSelect2(element, url, placeholder) {
+        const $element = $(element);
+        $element.select2({
+            theme: "bootstrap-5",
+            placeholder: placeholder,
+            minimumInputLength: 2,
+            dropdownParent: $('#modalAgregarCompra'),
+            ajax: { url: url, dataType: 'json', delay: 250, processResults: data => ({ results: data.results }), cache: true }
+        });
+        return $element;
+    }
+
+    // --- LÓGICA DEL FORMSET (FILAS DINÁMICAS) ---
+    function updateFormsetIds() {
+        const forms = formsetContainer.querySelectorAll('.detalle-form');
+        if (totalFormsInput) totalFormsInput.value = forms.length;
+        forms.forEach((form, index) => {
+            form.querySelectorAll('input, select').forEach(input => {
+                const name = input.getAttribute('name');
+                const id = input.getAttribute('id');
+                // Asume que el prefijo es 'detalle'
+                if (name) input.setAttribute('name', name.replace(/detalle-\d+-/, `detalle-${index}-`));
+                if (id) input.setAttribute('id', id.replace(/id_detalle-\d+-/, `id_detalle-${index}-`));
+            });
+        });
+    }
+
+    function addRow() {
+        const newIndex = formsetContainer.querySelectorAll('.detalle-form').length;
+        formsetContainer.insertAdjacentHTML('beforeend', emptyFormHtml.replace(/__prefix__/g, newIndex));
+        const newRow = formsetContainer.querySelectorAll('.detalle-form')[newIndex];
+        const newSelect = newRow.querySelector('select[name*="producto"]');
+        initProductSelect(newSelect);
+        if (totalFormsInput) totalFormsInput.value = newIndex + 1;
+    }
+    
+    function initProductSelect(element) {
+        const $element = initSelect2(element, buscarProductosUrl, 'Buscar producto...');
+        $element.on('select2:select', function(e) {
+            const data = e.params.data;
+            const row = $element.closest('.detalle-form');
+            if (data.precio_compra !== undefined) {
+                row.find('input[name*="costo_unitario"]').val(parseFloat(data.precio_compra).toFixed(2));
+            }
+            row.find('input[name*="cantidad"]').val(1);
+            calculateRowSubtotal(row[0]);
+            updateTotalCompra();
+        });
+    }
+
+    // --- MANEJADORES DE EVENTOS ---
+    const modalAgregarCompra = document.getElementById('modalAgregarCompra');
+    if (modalAgregarCompra) {
+        // --- 👇 CORRECCIÓN CLAVE: Inicializa los buscadores CUANDO se muestra el modal 👇 ---
+        modalAgregarCompra.addEventListener('shown.bs.modal', function () {
+            // Inicializa el buscador de Proveedor
+            initSelect2('#{{ compra_form.proveedor.id_for_label }}', buscarProveedoresUrl, 'Buscar proveedor por nombre o RUC...');
+            
+            // Inicializa los buscadores de Productos ya existentes
+            formsetContainer.querySelectorAll('select[name*="producto"]').forEach(select => {
+                if (!$(select).hasClass('select2-hidden-accessible')) {
+                    initProductSelect(select);
+                }
+            });
+        });
+    }
+
+    if(addRowBtn) {
+        addRowBtn.addEventListener('click', addRow);
+    }
+
+    if (formsetContainer) {
+        formsetContainer.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('delete-row')) {
+                e.preventDefault();
+                e.target.closest('.detalle-form').remove();
+                updateFormsetIds();
+                updateTotalCompra();
+            }
+        });
+        formsetContainer.addEventListener('input', function(e) {
+            if (e.target.tagName === 'INPUT' && (e.target.name.includes('cantidad') || e.target.name.includes('costo_unitario'))) {
+                const row = e.target.closest('.detalle-form');
+                calculateRowSubtotal(row);
+                updateTotalCompra();
+            }
+        });
+    }
+    
+    // --- MANEJADOR DE MODALES SECUNDARIOS (AJAX) ---
+    function handleAjaxForm(modalId, formId, targetSelectId) {
+        const modalElement = document.getElementById(modalId);
+        if (!modalElement) return;
+
+        const form = document.getElementById(formId);
+        const modalInstance = new bootstrap.Modal(modalElement);
+        const url = form.getAttribute('action');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            fetch(url, {
+                method: 'POST',
+                body: new URLSearchParams(formData),
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const select = document.getElementById(targetSelectId);
+                    const newOption = new Option(data.text, data.id, true, true);
+                    select.add(newOption);
+                    $(select).trigger('change');
+                    modalInstance.hide();
+                    form.reset();
+                    Swal.fire('¡Éxito!', 'Guardado correctamente.', 'success');
+                } else {
+                    let errorHtml = '<ul class="list-unstyled text-start ps-4">';
+                    for (const field in data.errors) {
+                        const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+                        errorHtml += `<li><strong>${fieldName}:</strong> ${data.errors[field][0].message}</li>`;
+                    }
+                    errorHtml += '</ul>';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error en el Formulario',
+                        html: errorHtml,
+                    });
+                }
+            });
+        });
+    }
+
+    // --- INICIALIZACIÓN DE MANEJADORES ---
+    handleAjaxForm('modalProveedor', 'formProveedor', '{{ compra_form.proveedor.id_for_label }}');
+});
+</script>
+{% endblock %}

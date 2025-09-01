@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Clientes{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        <h1 class="mt-4">Gestión de Clientes</h1>
+        <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Clientes</li>
+        </ol>
+
+        <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-user-plus me-1"></i>Añadir Nuevo Cliente</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">{{ form.nombre.label_tag }} {{ form.nombre }}</div>
+                        <div class="col-md-6 mb-3">{{ form.ruc.label_tag }} {{ form.ruc }}</div>
+                        <div class="col-md-6 mb-3">{{ form.email.label_tag }} {{ form.email }}</div>
+                        <div class="col-md-6 mb-3">{{ form.telefono.label_tag }} {{ form.telefono }}</div>
+                        <div class="col-12 mb-3">{{ form.direccion.label_tag }} {{ form.direccion }}</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-users me-1"></i>Lista de Clientes</div>
+            <div class="card-body">
+                <table id="datatablesSimple">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>RUC / Cédula</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                        <tr>
+                            <td>{{ cliente.nombre }}</td>
+                            <td>{{ cliente.ruc }}</td>
+                            <td>{{ cliente.email }}</td>
+                            <td>{{ cliente.telefono }}</td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-warning">Editar</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

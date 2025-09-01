@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Ventas{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        <h1 class="mt-4">Ventas</h1>
+        <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Ventas</li>
+        </ol>
+
+        <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-cash-register me-1"></i>Listado de Ventas
+                <button class="btn btn-primary btn-sm float-end" data-bs-toggle="modal" data-bs-target="#modalAgregarVenta">
+                    <i class="fa-solid fa-plus"></i> Nueva Venta
+                </button>
+            </div>
+            <div class="card-body">
+                <table id="datatablesSimple">
+                    <thead>
+                        <tr><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado Pago</th><th>Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for venta in ventas %}
+                        <tr class="{% if venta.estado_pago == 'N' %}table-secondary text-muted{% endif %}">
+                            <td>{{ venta.cliente.nombre }}</td>
+                            <td>{{ venta.fecha_emision }}</td>
+                            <td>${{ venta.importe_total|floatformat:2 }}</td>
+                            <td><span class="badge 
+                                {% if venta.estado_pago == 'C' %}bg-success{% elif venta.estado_pago == 'P' %}bg-warning{% elif venta.estado_pago == 'N' %}bg-danger{% else %}bg-info{% endif %}">
+                                {{ venta.get_estado_pago_display }}
+                            </span></td>
+                            <td>
+                                <a href="{% url 'venta_pdf' venta.id %}" target="_blank" class="btn btn-info btn-sm" title="Ver PDF"><i class="fa-solid fa-file-pdf"></i></a>
+                                {% if venta.estado_pago != 'N' %}
+                                <a href="{% url 'anular_venta' venta.id %}" class="btn btn-danger btn-sm" title="Anular Venta"><i class="fa-solid fa-ban"></i></a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalAgregarVenta" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'ventas' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Nueva Venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cliente</label>
+                            <div class="input-group">
+                                {{ factura_form.cliente }}
+                                <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalCliente">+ Agregar</button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label">P. Venta</label>
+                            {{ factura_form.punto_venta }}
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Método de Pago</label>
+                            <div class="input-group">
+                                {{ factura_form.metodo_pago }}
+                                <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalMetodoPago">+ Agregar</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha</label>
+                            {{ factura_form.fecha_emision }}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <h6>Detalle de Productos</h6>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Producto</th>
+                                <th>Stock</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unit.</th>
+                                <th>Subtotal</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="detalle-venta-formset">
+                            {{ detalle_formset.management_form }}
+                            {% for form in detalle_formset %}
+                                <tr class="detalle-form">
+                                    <td>{{ form.producto }}</td>
+                                    <td><input type="text" class="form-control stock-ref bg-light" readonly></td>
+                                    <td>{{ form.cantidad }}</td>
+                                    <td>{{ form.precio_unitario }}</td>
+                                    <td><input type="text" class="form-control subtotal bg-light" readonly></td>
+                                    <td><button type="button" class="btn btn-danger btn-sm delete-row">X</button></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" id="add-row" class="btn btn-success btn-sm">+ Agregar Fila</button>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div><h4>Total Venta: <span id="total-venta" class="badge bg-dark">$0.00</span></h4></div>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Venta</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<table style="display: none;"><tbody id="empty-form">
+    <tr class="detalle-form">
+        <td>{{ detalle_formset.empty_form.producto }}</td>
+        <td><input type="text" class="form-control stock-ref bg-light" readonly></td>
+        <td>{{ detalle_formset.empty_form.cantidad }}</td>
+        <td>{{ detalle_formset.empty_form.precio_unitario }}</td>
+        <td><input type="text" class="form-control subtotal bg-light" readonly></td>
+        <td><button type="button" class="btn btn-danger btn-sm delete-row">X</button></td>
+    </tr>
+</tbody></table>
+
+<div class="modal fade" id="modalCliente" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formCliente" method="post" action="{% url 'agregar_cliente_ajax' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header"><h5 class="modal-title">Nuevo Cliente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label class="form-label">Nombre</label><input type="text" name="nombre" class="form-control" required></div>
+                <div class="mb-2"><label class="form-label">RUC/Cédula</label><input type="text" name="ruc" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">Dirección</label><input type="text" name="direccion" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">Teléfono</label><input type="text" name="telefono" class="form-control"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button><button type="submit" class="btn btn-primary">Guardar</button></div>
+        </form>
+    </div>
+</div>
+<div class="modal fade" id="modalMetodoPago" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formMetodoPago" action="{% url 'agregar_metodo_pago_ajax' %}" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nuevo Método de Pago</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><label class="form-label">Nombre</label><input type="text" name="nombre" class="form-control" required></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button><button type="submit" class="btn btn-primary">Guardar</button></div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- OBTENER ELEMENTOS Y URLS ---
+    const buscarProductosUrl = "{% url 'buscar_productos_ajax' %}";
+    const buscarClientesUrl = "{% url 'buscar_clientes_ajax' %}";
+    const formsetContainer = document.querySelector('#detalle-venta-formset');
+    const addRowBtn = document.querySelector('#add-row');
+    const totalFormsInput = document.querySelector('input[name="detalle-TOTAL_FORMS"]');
+    const emptyFormHtml = document.querySelector('#empty-form').innerHTML;
+    const totalVentaSpan = document.querySelector('#total-venta');
+
+    // --- CÁLCULO DE TOTALES ---
+    function calculateRowSubtotal(row) {
+        const cantidadInput = row.querySelector('.cantidad');
+        const precioInput = row.querySelector('.precio');
+        const subtotalInput = row.querySelector('.subtotal');
+        const cantidad = parseFloat(cantidadInput.value) || 0;
+        const precio = parseFloat(precioInput.value) || 0;
+        subtotalInput.value = (cantidad * precio).toFixed(2);
+    }
+
+    function updateTotalVenta() {
+        let total = 0;
+        formsetContainer.querySelectorAll('.subtotal').forEach(input => {
+            const subtotal = parseFloat(input.value);
+            if (!isNaN(subtotal)) {
+                total += subtotal;
+            }
+        });
+        totalVentaSpan.textContent = '$' + total.toFixed(2);
+    }
+
+    // --- INICIALIZACIÓN DE SELECT2 ---
+    function initSelect2(element, url, placeholder) {
+        const $element = $(element);
+        $element.select2({
+            theme: "bootstrap-5",
+            placeholder: placeholder,
+            minimumInputLength: 2,
+            dropdownParent: $element.closest('.modal-body') || $element.parent(),
+            ajax: { url: url, dataType: 'json', delay: 250, processResults: data => ({ results: data.results }), cache: true }
+        });
+        return $element;
+    }
+
+    initSelect2('#{{ factura_form.cliente.id_for_label }}', buscarClientesUrl, 'Buscar cliente por nombre o RUC...');
+
+    // --- LÓGICA DEL FORMSET (FILAS DINÁMICAS) ---
+    function updateFormsetIds() {
+        const forms = formsetContainer.querySelectorAll('.detalle-form');
+        totalFormsInput.value = forms.length;
+        forms.forEach((form, index) => {
+            form.querySelectorAll('input, select').forEach(input => {
+                const name = input.getAttribute('name');
+                const id = input.getAttribute('id');
+                if (name) input.setAttribute('name', name.replace(/detalle-\d+-/, `detalle-${index}-`));
+                if (id) input.setAttribute('id', id.replace(/id_detalle-\d+-/, `id_detalle-${index}-`));
+            });
+        });
+    }
+
+    function addRow() {
+        const newIndex = formsetContainer.querySelectorAll('.detalle-form').length;
+        formsetContainer.insertAdjacentHTML('beforeend', emptyFormHtml.replace(/__prefix__/g, newIndex));
+        const newSelect = formsetContainer.querySelector(`select[name="detalle-${newIndex}-producto"]`);
+        initProductSelect(newSelect);
+        totalFormsInput.value = newIndex + 1;
+    }
+    
+    addRowBtn.addEventListener('click', addRow);
+
+    formsetContainer.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('delete-row')) {
+            e.preventDefault();
+            e.target.closest('.detalle-form').remove();
+            updateFormsetIds();
+            updateTotalVenta();
+        }
+    });
+
+    function initProductSelect(element) {
+        const $element = initSelect2(element, buscarProductosUrl, 'Buscar producto por nombre o código...');
+        $element.on('select2:select', function(e) {
+            const data = e.params.data;
+            const row = $element.closest('.detalle-form');
+            if (data.stock !== undefined) row.find('.stock-ref').val(data.stock);
+            if (data.precio_venta !== undefined) row.find('.precio').val(parseFloat(data.precio_venta).toFixed(2));
+            row.find('.cantidad').val(1);
+            calculateRowSubtotal(row[0]);
+            updateTotalVenta();
+        });
+    }
+
+    formsetContainer.querySelectorAll('.producto-select').forEach(select => initProductSelect(select));
+    
+    formsetContainer.addEventListener('input', function(e) {
+        if (e.target.classList.contains('cantidad') || e.target.classList.contains('precio')) {
+            const row = e.target.closest('.detalle-form');
+            const cantidadInput = row.querySelector('.cantidad');
+            const stock = parseFloat(row.querySelector('.stock-ref').value) || 0;
+            if (parseFloat(cantidadInput.value) > stock) {
+                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles.`});
+                cantidadInput.value = stock;
+            }
+            calculateRowSubtotal(row);
+            updateTotalVenta();
+        }
+    });
+
+    // --- MANEJO DE MODALES SECUNDARIOS (AJAX) - VERSIÓN CORREGIDA ---
+    function handleAjaxForm(modalId, formId, targetSelectId) {
+        const modalElement = document.getElementById(modalId);
+        if (!modalElement) return;
+
+        const form = document.getElementById(formId);
+        const modalInstance = new bootstrap.Modal(modalElement);
+        const url = form.getAttribute('action');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // Previene el envío tradicional
+
+            const formData = new FormData(form);
+            fetch(url, {
+                method: 'POST',
+                body: new URLSearchParams(formData),
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // --- AJUSTE CLAVE AQUÍ ---
+                // Leemos 'success' en lugar de 'ok' y usamos 'id' y 'text'
+                if (data.status === 'success') {
+                    const select = document.getElementById(targetSelectId);
+                    // Usamos data.text para el nombre y data.id para el valor
+                    const newOption = new Option(data.text, data.id, true, true);
+                    select.add(newOption);
+                    $(select).trigger('change'); // Notifica a Select2 del cambio
+
+                    modalInstance.hide();
+                    form.reset();
+                    Swal.fire('¡Éxito!', 'Guardado correctamente.', 'success');
+                } else {
+                    // La lógica de errores ya es compatible
+                    let errorHtml = '<ul class="list-unstyled text-start ps-4">';
+                    for (const field in data.errors) {
+                        const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+                        errorHtml += `<li><strong>${fieldName}:</strong> ${data.errors[field][0].message}</li>`;
+                    }
+                    errorHtml += '</ul>';
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error en el Formulario',
+                        html: errorHtml,
+                    });
+                }
+            });
+        });
+    }
+
+    // Inicializa los manejadores para cada modal que tengas
+    handleAjaxForm('modalCliente', 'formCliente', '{{ factura_form.cliente.id_for_label }}');
+    handleAjaxForm('modalMetodoPago', 'formMetodoPago', '{{ factura_form.metodo_pago.id_for_label }}');
+});
+</script>
+{% endblock %}

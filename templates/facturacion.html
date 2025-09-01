@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}Facturación Electrónica{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        <h1 class="mt-4">Facturación Electrónica</h1>
+        <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Facturación</li>
+        </ol>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-file-invoice-dollar me-1"></i>
+                Comprobantes Emitidos
+            </div>
+            <div class="card-body">
+                <table id="datatablesSimple">
+                    <thead>
+                        <tr>
+                            <th># Factura</th>
+                            <th>Cliente</th>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Estado SRI</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                   <tbody>
+                    {% for f in facturas %}
+                    <tr id="factura-row-{{ f.id }}">
+                        <td>{{ f.punto_venta.codigo_establecimiento }}-{{ f.punto_venta.codigo_punto_emision }}-{{ f.secuencial }}</td>
+                        <td>{{ f.cliente.nombre }}</td>
+                        <td>{{ f.fecha_emision }}</td>
+                        <td>${{ f.importe_total|floatformat:2 }}</td>
+                        <td class="estado-sri">
+                            <span 
+                                class="badge 
+                                    {% if f.estado_sri == 'A' %}bg-success
+                                    {% elif f.estado_sri == 'R' %}bg-danger
+                                    {% elif f.estado_sri == 'F' %}bg-info
+                                    {% else %}bg-secondary{% endif %}"
+                                
+                                {% if f.estado_sri == 'R' and f.sri_error %}
+                                    data-bs-toggle="tooltip" 
+                                    data-bs-placement="top" 
+                                    title="{{ f.sri_error }}"
+                                {% endif %}
+                            >
+                                {{ f.get_estado_sri_display }}
+                            </span>
+                        </td>
+                        <td class="acciones">
+                            
+                            {% if f.estado_sri == 'P' %}
+                                <button class="btn btn-sm btn-success btn-procesar" data-factura-id="{{ f.id }}">
+                                    <i class="fa-solid fa-bolt"></i> Procesar
+                                </button>
+
+                            {% elif f.estado_sri == 'R' or f.estado_sri == 'F' %}
+                                <button class="btn btn-sm btn-warning btn-procesar" data-factura-id="{{ f.id }}">
+                                    <i class="fa-solid fa-rotate-right"></i> Re-procesar
+                                </button>
+                            
+                            {% elif f.estado_sri == 'A' %}
+                                <button class="btn btn-sm btn-primary btn-reenviar" data-factura-id="{{ f.id }}" title="Reenviar por Email">
+                                    <i class="fa-solid fa-envelope"></i> Reenviar
+                                </button>
+                            {% endif %}
+
+                            <a href="{% url 'venta_pdf' f.id %}" class="btn btn-sm btn-info" target="_blank" title="Ver PDF"><i class="fa-solid fa-file-pdf"></i></a>
+                            
+                            {% if f.xml_generado %}
+                                <a href="{% url 'descargar_xml_generado' f.id %}" class="btn btn-sm btn-light" title="Descargar XML Generado (sin firma)"><i class="fa-solid fa-file"></i></a>
+                            {% endif %}
+
+                            {% if f.xml_firmado %}
+                                <a href="{% url 'descargar_xml_firmado' f.id %}" class="btn btn-sm btn-warning" title="Descargar XML Firmado (sin autorización)"><i class="fa-solid fa-signature"></i></a>
+                            {% endif %}
+
+                            {% if f.estado_sri == 'A' %}
+                                <a href="{% url 'descargar_xml' f.id %}" class="btn btn-sm btn-secondary" title="Descargar XML Autorizado"><i class="fa-solid fa-file-code"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar los tooltips de Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    const table = document.getElementById('datatablesSimple');
+
+    function checkStatus(facturaId) {
+        const url = `{% url 'consultar_estado_sri_ajax' %}?factura_id=${facturaId}`;
+        const row = document.getElementById(`factura-row-${facturaId}`);
+        if (!row) return;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    const estadoCell = row.cells[4];
+                    const accionesCell = row.cells[5];
+                    
+                    estadoCell.innerHTML = `<span class="badge bg-${data.color}" title="${data.sri_error || ''}">${data.estado_sri}</span>`;
+                    
+                    const procesarBtn = accionesCell.querySelector('.btn-procesar');
+                    if (procesarBtn) procesarBtn.remove();
+                    
+                    if (data.estado_code === 'A' && !accionesCell.querySelector('.btn-reenviar')) {
+                       const reenviarBtnHTML = `
+                            <button class="btn btn-sm btn-primary btn-reenviar" data-factura-id="${facturaId}" title="Reenviar por Email">
+                                <i class="fa-solid fa-envelope"></i> Reenviar
+                            </button>`;
+                       accionesCell.insertAdjacentHTML('afterbegin', reenviarBtnHTML);
+                    }
+                }
+            });
+    }
+
+    if (table) {
+        table.addEventListener('click', function(e) {
+            const procesarBtn = e.target.closest('.btn-procesar');
+            const reenviarBtn = e.target.closest('.btn-reenviar');
+
+            if (procesarBtn) {
+                const button = procesarBtn;
+                const facturaId = button.dataset.facturaId;
+                const url = "{% url 'procesar_factura_ajax' %}";
+                const row = button.closest('tr');
+                const estadoCell = row.cells[4];
+
+                estadoCell.innerHTML = `<span class="badge bg-primary">Procesando...</span>`;
+                button.disabled = true;
+
+                fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' }, body: `factura_id=${facturaId}` })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire({ icon: 'success', title: 'Enviada a procesar', text: 'El estado se actualizará en 5 segundos.', timer: 2000, showConfirmButton: false });
+                            setTimeout(() => checkStatus(facturaId), 5000);
+                        } else {
+                            Swal.fire('Error', data.message, 'error');
+                            estadoCell.innerHTML = `<span class="badge bg-danger">Error</span>`;
+                            button.disabled = false;
+                        }
+                    });
+            }
+
+            if (reenviarBtn) {
+                const button = reenviarBtn;
+                const facturaId = button.dataset.facturaId;
+                const url = "{% url 'reenviar_factura_ajax' %}";
+                
+                button.disabled = true;
+                button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+                fetch(url, { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}'}, body: `factura_id=${facturaId}` })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        Swal.fire('Éxito', data.message, 'success');
+                    } else {
+                        Swal.fire('Error', data.message, 'error');
+                    }
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fa-solid fa-envelope"></i> Reenviar';
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

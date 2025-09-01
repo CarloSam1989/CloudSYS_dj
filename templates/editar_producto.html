@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Producto{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        <h1 class="mt-4">Editar Producto</h1>
+        <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'inventario' %}">Inventario</a></li>
+            <li class="breadcrumb-item active">Editar</li>
+        </ol>
+
+        <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-edit me-1"></i>Editando a: <strong>{{ form.instance.nombre }}</strong></div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <hr>
+                    <div class="d-flex justify-content-end">
+                        <a href="{% url 'inventario' %}" class="btn btn-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

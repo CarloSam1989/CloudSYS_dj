@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Inventario{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        <h1 class="mt-4">Inventario de Productos</h1>
+        <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Inventario</li>
+        </ol>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-box me-1"></i>
+                Listado de Productos
+                <button class="btn btn-primary btn-sm float-end" data-bs-toggle="modal" data-bs-target="#modalProducto">
+                    <i class="fa-solid fa-plus"></i> Nuevo Producto
+                </button>
+            </div>
+            <div class="card-body">
+                <table id="datatablesSimple">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th><th>Código</th><th>Categoría</th><th>Stock</th><th>Precio Venta</th><th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos %}
+                        <tr>
+                            <td>{{ producto.nombre }}</td>
+                            <td>{{ producto.codigo }}</td>
+                            <td>{{ producto.categoria.nombre|default_if_none:"N/A" }}</td>
+                            <td>{{ producto.stock }}</td>
+                            <td>${{ producto.precio|floatformat:2 }}</td>
+                            <td>
+                                <a href="{% url 'editar_producto' producto.id %}" class="btn btn-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'eliminar_producto' producto.id %}" class="btn btn-danger btn-sm" title="Eliminar"><i class="fas fa-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalProducto" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'inventario' %}">
+                {% csrf_token %}
+                <div class="modal-header"><h5 class="modal-title">Nuevo Producto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-5"><label for="{{ form.nombre.id_for_label }}" class="form-label">Nombre</label>{{ form.nombre }}</div>
+                        <div class="col-md-4"><label for="{{ form.codigo.id_for_label }}" class="form-label">Código</label>{{ form.codigo }}</div>
+                        <div class="col-md-3 d-flex align-items-end"><div class="form-check form-switch mb-2">{{ form.maneja_iva }}<label for="{{ form.maneja_iva.id_for_label }}" class="form-check-label">Grava IVA</label></div></div>
+                        <div class="col-md-12"><label for="{{ form.descripcion.id_for_label }}" class="form-label">Descripción</label>{{ form.descripcion }}</div>
+                        <div class="col-12"><label for="{{ form.categoria.id_for_label }}" class="form-label">Categoría</label><div class="input-group">{{ form.categoria }}<button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalCategoria">+ Agregar</button></div></div>
+                        <div class="col-md-6"><label for="{{ form.marca.id_for_label }}" class="form-label">Marca</label><div class="input-group">{{ form.marca }}<button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalMarca">+ Agregar</button></div></div>
+                        <div class="col-md-6"><label for="{{ form.modelo.id_for_label }}" class="form-label">Modelo</label><div class="input-group">{{ form.modelo }}<button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalModelo">+ Agregar</button></div></div>
+                        <div class="col-md-4"><label for="{{ form.stock.id_for_label }}" class="form-label">Stock Inicial</label>{{ form.stock }}</div>
+                        <div class="col-md-4"><label for="{{ form.costo.id_for_label }}" class="form-label">Precio Compra</label>{{ form.costo }}</div>
+                        <div class="col-md-4"><label for="{{ form.precio.id_for_label }}" class="form-label">Precio Venta</label>{{ form.precio }}</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCategoria" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formCategoria" action="{% url 'agregar_categoria_ajax' %}" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nueva Categoría</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <label for="id_nombre_categoria" class="form-label">Nombre</label>
+                <input type="text" name="nombre" id="id_nombre_categoria" class="form-control" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalMarca" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formMarca" action="{% url 'agregar_marca_ajax' %}" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nueva Marca</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <label for="id_nombre_marca" class="form-label">Nombre</label>
+                <input type="text" name="nombre" id="id_nombre_marca" class="form-control" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalModelo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formModelo" action="{% url 'agregar_modelo_ajax' %}" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nuevo Modelo</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="id_marca_modelo" class="form-label">Marca</label>
+                    <select name="marca" id="id_marca_modelo" class="form-select" required>
+                        </select>
+                </div>
+                <div class="mb-3">
+                    <label for="id_nombre_modelo" class="form-label">Nombre del Modelo</label>
+                    <input type="text" name="nombre" id="id_nombre_modelo" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // FUNCIÓN MEJORADA: Ahora vuelve a abrir el modal principal
+    function handleAjaxForm(formId, targetSelectId, sourceModalId) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const url = form.action;
+
+            fetch(url, {
+                method: 'POST',
+                body: new URLSearchParams(formData),
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const select = document.getElementById(targetSelectId);
+                    const newOption = new Option(data.nombre, data.id, true, true);
+                    select.add(newOption);
+                    
+                    // Cierra el modal secundario
+                    const sourceModal = bootstrap.Modal.getInstance(document.getElementById(sourceModalId));
+                    sourceModal.hide();
+                    form.reset();
+
+                    // Muestra de nuevo el modal principal
+                    const mainModal = bootstrap.Modal.getInstance(document.getElementById('modalProducto'));
+                    mainModal.show();
+                    
+                    Swal.fire({ icon: 'success', title: '¡Guardado!', timer: 1500, showConfirmButton: false });
+                } else {
+                    Swal.fire('Error', 'No se pudo guardar. Revisa los datos.', 'error');
+                }
+            });
+        });
+    }
+
+    // Vinculamos cada formulario a su función
+    handleAjaxForm('formCategoria', '{{ form.categoria.id_for_label }}', 'modalCategoria');
+    handleAjaxForm('formMarca', '{{ form.marca.id_for_label }}', 'modalMarca');
+    
+    // Lógica especial para el modal de Modelo
+    const modalModelo = document.getElementById('modalModelo');
+    modalModelo.addEventListener('show.bs.modal', function() {
+        // Copia las opciones del select de Marca del form principal al modal de Modelo
+        const marcaSelectPrincipal = document.getElementById('{{ form.marca.id_for_label }}');
+        const marcaSelectModal = document.getElementById('id_marca_modelo');
+        marcaSelectModal.innerHTML = marcaSelectPrincipal.innerHTML;
+        marcaSelectModal.value = marcaSelectPrincipal.value;
+    });
+    handleAjaxForm('formModelo', '{{ form.modelo.id_for_label }}', 'modalModelo');
+
+    // Oculta los modales secundarios cuando el principal se cierra
+    const mainModalEl = document.getElementById('modalProducto');
+    mainModalEl.addEventListener('hidden.bs.modal', function() {
+        ['modalCategoria', 'modalMarca', 'modalModelo'].forEach(id => {
+            const modalEl = document.getElementById(id);
+            if(modalEl && bootstrap.Modal.getInstance(modalEl)) {
+                bootstrap.Modal.getInstance(modalEl).hide();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
