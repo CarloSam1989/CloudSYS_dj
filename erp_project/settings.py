@@ -51,8 +51,8 @@ MIDDLEWARE = [
 # 4. CONFIGURACIÓN DEL PROYECTO (URLs, WSGI)
 # ==============================================================================
 # Asegúrate de que 'CloudSYS' es el nombre correcto de tu carpeta de proyecto
-ROOT_URLCONF = 'CloudSYS.urls'
-WSGI_APPLICATION = 'CloudSYS.wsgi.application'
+ROOT_URLCONF = 'erp_project.urls'
+WSGI_APPLICATION = 'erp_project.wsgi.application'
 
 
 # 5. PLANTILLAS (TEMPLATES)
