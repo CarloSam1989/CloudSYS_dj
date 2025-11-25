@@ -2,39 +2,81 @@ import base64
 from datetime import datetime
 from lxml import etree
 import zeep
+import random
+import string
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import pkcs12, Encoding
 
-# ==============================================================================
-# CONSTANTES
-# ==============================================================================
+# --- CONSTANTES ---
 URL_RECEPCION_PRUEBAS = "https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl"
 URL_AUTORIZACION_PRUEBAS = "https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl"
 
+# Mapa de códigos de porcentaje de IVA según la tarifa
+IVA_MAP = {
+    '12': '2',
+    '14': '3', # Ejemplo si existiera
+    '15': '4', # Ejemplo para el nuevo IVA
+    '5': '10', # Ejemplo para IVA reducido en feriados
+    '0': '0',
+}
+
 # ==============================================================================
-# FUNCIONES AUXILIARES
+# 1. FUNCIONES DE CLAVE DE ACCESO (CORREGIDAS)
 # ==============================================================================
+
+def _modulo11(clave_sin_digito):
+    """
+    Calcula el dígito verificador para una clave de 48 dígitos (Módulo 11).
+    Utiliza la secuencia de factores correcta para la clave de acceso (7,6,5,4,3,2...).
+    """
+    factores = [7, 6, 5, 4, 3, 2]
+    suma = 0
+    for i, digito in enumerate(reversed(clave_sin_digito)):
+        suma += int(digito) * factores[i % len(factores)]
+    
+    residuo = suma % 11
+    digito_verificador = 11 - residuo
+    
+    if digito_verificador == 11: return 0
+    if digito_verificador == 10: return 1
+    return digito_verificador
+
+def generar_clave_acceso(fecha, tipo_comprobante, ruc, ambiente, serie, secuencial):
+    """
+    Genera una clave de acceso de 49 dígitos para un comprobante electrónico del SRI.
+    """
+    fecha_str = fecha.strftime('%d%m%Y')
+    codigo_numerico = ''.join(random.choices(string.digits, k=8))
+    tipo_emision = '1'
+
+    clave_sin_digito = (
+        f"{fecha_str}{tipo_comprobante}{ruc}{ambiente}{serie}"
+        f"{secuencial}{codigo_numerico}{tipo_emision}"
+    )
+
+    if len(clave_sin_digito) != 48:
+        raise ValueError("La base de la clave de acceso debe tener 48 dígitos")
+
+    digito_verificador = _modulo11(clave_sin_digito)
+    return f"{clave_sin_digito}{digito_verificador}"
+
+# ==============================================================================
+# 2. GENERACIÓN DE XML (CORREGIDO)
+# ==============================================================================
+
 def determinar_tipo_identificacion(identificacion):
     if len(identificacion) == 13: return '04'
     elif len(identificacion) == 10: return '05'
     elif identificacion == '9999999999999': return '07'
     else: return '06'
 
-def calcular_digito_verificador(numero):
-    factores = [2, 3, 4, 5, 6, 7] * (len(numero) // 6 + 1)
-    suma = sum(int(digito) * factor for digito, factor in zip(reversed(numero), factores))
-    resultado = 11 - (suma % 11)
-    if resultado == 11: return 0
-    if resultado == 10: return 1
-    return resultado
-
-# ==============================================================================
-# GENERACIÓN DE XML
-# ==============================================================================
 def generar_xml_factura(factura):
+    """
+    Genera el XML para una factura, leyendo la estructura JSON correcta para los impuestos.
+    """
     factura_xml = etree.Element('factura', id='comprobante', version='1.1.0')
     infoTributaria = etree.SubElement(factura_xml, 'infoTributaria')
     etree.SubElement(infoTributaria, 'ambiente').text = factura.ambiente
@@ -47,6 +89,7 @@ def generar_xml_factura(factura):
     etree.SubElement(infoTributaria, 'ptoEmi').text = factura.punto_venta.codigo_punto_emision
     etree.SubElement(infoTributaria, 'secuencial').text = factura.secuencial
     etree.SubElement(infoTributaria, 'dirMatriz').text = factura.empresa.direccion
+
     infoFactura = etree.SubElement(factura_xml, 'infoFactura')
     etree.SubElement(infoFactura, 'fechaEmision').text = factura.fecha_emision.strftime('%d/%m/%Y')
     etree.SubElement(infoFactura, 'dirEstablecimiento').text = factura.empresa.direccion
@@ -56,16 +99,20 @@ def generar_xml_factura(factura):
     etree.SubElement(infoFactura, 'identificacionComprador').text = factura.cliente.ruc
     etree.SubElement(infoFactura, 'totalSinImpuestos').text = f"{factura.total_sin_impuestos:.2f}"
     etree.SubElement(infoFactura, 'totalDescuento').text = f"{factura.total_descuento:.2f}"
+    
     totalConImpuestos = etree.SubElement(infoFactura, 'totalConImpuestos')
+    # CORREGIDO: Lee la estructura JSON correcta
     for imp_total in factura.total_con_impuestos.get('totalImpuesto', []):
         totalImpuesto = etree.SubElement(totalConImpuestos, 'totalImpuesto')
         etree.SubElement(totalImpuesto, 'codigo').text = imp_total['codigo']
         etree.SubElement(totalImpuesto, 'codigoPorcentaje').text = imp_total['codigoPorcentaje']
         etree.SubElement(totalImpuesto, 'baseImponible').text = imp_total['baseImponible']
         etree.SubElement(totalImpuesto, 'valor').text = imp_total['valor']
+
     etree.SubElement(infoFactura, 'propina').text = f"{factura.propina:.2f}"
     etree.SubElement(infoFactura, 'importeTotal').text = f"{factura.importe_total:.2f}"
     etree.SubElement(infoFactura, 'moneda').text = factura.moneda
+    
     detalles = etree.SubElement(factura_xml, 'detalles')
     for detalle_obj in factura.detalles.all():
         detalle = etree.SubElement(detalles, 'detalle')
@@ -75,16 +122,18 @@ def generar_xml_factura(factura):
         etree.SubElement(detalle, 'precioUnitario').text = f"{detalle_obj.precio_unitario:.4f}"
         etree.SubElement(detalle, 'descuento').text = f"{detalle_obj.descuento:.2f}"
         etree.SubElement(detalle, 'precioTotalSinImpuesto').text = f"{detalle_obj.precio_total_sin_impuesto:.2f}"
+        
         impuestos_detalle = etree.SubElement(detalle, 'impuestos')
+        # CORREGIDO: Lee la estructura JSON correcta
         for imp_det in detalle_obj.impuestos.get('impuestos', []):
             impuesto = etree.SubElement(impuestos_detalle, 'impuesto')
             etree.SubElement(impuesto, 'codigo').text = imp_det['codigo']
             etree.SubElement(impuesto, 'codigoPorcentaje').text = imp_det['codigoPorcentaje']
-            etree.SubElement(impuesto, 'tarifa').text = '15'
+            etree.SubElement(impuesto, 'tarifa').text = imp_det['tarifa'] # CORREGIDO: Tarifa dinámica
             etree.SubElement(impuesto, 'baseImponible').text = imp_det['baseImponible']
             etree.SubElement(impuesto, 'valor').text = imp_det['valor']
+            
     return etree.tostring(factura_xml, xml_declaration=True, encoding='utf-8')
-
 # ==============================================================================
 # FIRMA DIGITAL
 # ==============================================================================

@@ -56,10 +56,12 @@ urlpatterns = [
     path('facturacion-electronica/xml/<int:factura_id>/', views.descargar_xml_view, name='descargar_xml'),
     path('ajax/buscar-proveedores/', views.buscar_proveedores_ajax, name='buscar_proveedores_ajax'),
     path('ajax/agregar-proveedor/', views.agregar_proveedor_ajax, name='agregar_proveedor_ajax'),
+    path('cotizaciones/', views.lista_cotizaciones, name='cotizaciones'),
+    path('cotizaciones/crear/', views.crear_cotizacion, name='cotizacion_crear'),
+    path('cotizaciones/<int:cotizacion_id>/', views.detalle_cotizacion, name='cotizacion_detalle'),
+    path('ajax/convertir-cotizacion/', views.convertir_cotizacion_a_factura_ajax, name='ajax_convertir_cotizacion'),
+    path('configuracion/empresa/', views.configuracion_empresa, name='config_empresa'),
+    path('ajax/cambiar-estado-cotizacion/', views.cambiar_estado_cotizacion_ajax, name='ajax_cambiar_estado_cotizacion'),
+    path('cotizaciones/<int:cotizacion_id>/pdf/', views.generar_cotizacion_pdf, name='cotizacion_pdf'),
 
-
-   
-   
-
-    
 ]

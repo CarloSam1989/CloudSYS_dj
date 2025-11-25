@@ -2,11 +2,20 @@
 from django.db import models
 from django.db.models import Sum
 from django.contrib.auth.models import User
-
+from decimal import Decimal
+import json
 # ==============================================================================
 # 1. MODELOS CENTRALES (MULTITENANCY Y CONFIGURACIÓN)
 # ==============================================================================
-
+class DecimalEncoder(json.JSONEncoder):
+    """
+    Esta clase ayuda a convertir objetos Decimal a string
+    para que puedan ser guardados en un campo JSON.
+    """
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super().default(obj)
 class Empresa(models.Model):
     nombre = models.CharField(max_length=200, verbose_name="Nombre/Razón Social")
     ruc = models.CharField(max_length=13, unique=True, verbose_name="RUC")
@@ -17,6 +26,13 @@ class Empresa(models.Model):
     ambiente_sri = models.CharField(max_length=1, choices=[('1', 'Pruebas'), ('2', 'Producción')], default='1', verbose_name="Ambiente SRI")
     activa = models.BooleanField(default=True, verbose_name="Suscripción Activa")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    iva_porcentaje = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=12.00, 
+        verbose_name="Porcentaje de IVA (%)",
+        help_text="Valor actual del IVA. Ej: 12.00 para 12%, 5.00 para 5%."
+    )
 
     def __str__(self):
         return self.nombre
@@ -171,7 +187,7 @@ class Factura(models.Model):
     fecha_emision = models.DateField()
     total_sin_impuestos = models.DecimalField(max_digits=12, decimal_places=2)
     total_descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_con_impuestos = models.JSONField(default=dict)
+    total_con_impuestos = models.JSONField(default=dict, encoder=DecimalEncoder)
     propina = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     importe_total = models.DecimalField(max_digits=12, decimal_places=2)
     moneda = models.CharField(max_length=15, default='DOLAR')
@@ -262,3 +278,74 @@ class Bitacora(models.Model):
 
     def __str__(self):
         return f"[{self.fecha_hora.strftime('%Y-%m-%d %H:%M')}] {self.usuario.username}: {self.accion[:50]}..."
+    
+# Ubicación: Añadir al final de core/models.py
+
+# ==============================================================================
+# 5. MODELOS DE COTIZACIONES / PRESUPUESTOS
+# ==============================================================================
+
+class Cotizacion(models.Model):
+    """
+    Encabezado de la cotización. Contiene la información general, similar a una factura,
+    pero con estados para gestionar su ciclo de vida.
+    """
+    ESTADO_CHOICES = [
+        ('B', 'Borrador'),      # Creada pero no enviada al cliente
+        ('E', 'Enviada'),        # Enviada al cliente, esperando respuesta
+        ('A', 'Aceptada'),       # El cliente aceptó la cotización
+        ('R', 'Rechazada'),      # El cliente rechazó la cotización
+        ('V', 'Vencida'),        # La cotización expiró
+        ('F', 'Facturada'),      # La cotización ya se convirtió en factura
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    usuario = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    # El campo clave para enlazar con la factura una vez que se genere.
+    factura_generada = models.OneToOneField(
+        Factura, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='cotizacion_origen',
+        verbose_name="Factura Generada"
+    )
+
+    # Información general
+    numero_cotizacion = models.CharField(max_length=50, unique=True, editable=False)
+    fecha_emision = models.DateField(auto_now_add=True)
+    fecha_vencimiento = models.DateField(verbose_name="Válida hasta")
+    estado = models.CharField(max_length=1, choices=ESTADO_CHOICES, default='B')
+    terminos_y_condiciones = models.TextField(blank=True, null=True, verbose_name="Términos y Condiciones")
+
+    # Totales (idénticos a los de la factura para facilitar la conversión)
+    total_sin_impuestos = models.DecimalField(max_digits=12, decimal_places=2)
+    total_descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_con_impuestos = models.JSONField(default=dict, encoder=DecimalEncoder)
+    importe_total = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"Cotización {self.numero_cotizacion} para {self.cliente.nombre}"
+
+    class Meta:
+        verbose_name = "Cotización"
+        verbose_name_plural = "Cotizaciones"
+        ordering = ['-fecha_emision']
+
+
+class CotizacionDetalle(models.Model):
+    """
+    Líneas de detalle de la cotización. Es casi un espejo de FacturaDetalle.
+    """
+    cotizacion = models.ForeignKey(Cotizacion, related_name='detalles', on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    cantidad = models.DecimalField(max_digits=12, decimal_places=4)
+    precio_unitario = models.DecimalField(max_digits=12, decimal_places=4)
+    descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    precio_total_sin_impuesto = models.DecimalField(max_digits=12, decimal_places=2)
+    impuestos = models.JSONField(default=dict)
+
+    def __str__(self):
+        return f"Detalle de {self.producto.nombre} en cotización {self.cotizacion.id}"

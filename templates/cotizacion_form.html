@@ -1,0 +1,320 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Crear Cotización{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Nueva Cotización</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Inicio</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'cotizaciones' %}">Cotizaciones</a></li>
+        <li class="breadcrumb-item active">Crear</li>
+    </ol>
+
+    <form method="post" id="cotizacionForm">
+        {% csrf_token %}
+
+        <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-user-friends me-1"></i>Datos Principales de la Cotización</div>
+            <div class="card-body">
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.cliente.id_for_label }}" class="form-label">Cliente</label>
+                        {{ form.cliente }}
+                        {% if form.cliente.errors %}
+                            <div class="text-danger small mt-1">{{ form.cliente.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.fecha_vencimiento.id_for_label }}" class="form-label">Válida hasta</label>
+                        {{ form.fecha_vencimiento }}
+                         {% if form.fecha_vencimiento.errors %}
+                            <div class="text-danger small mt-1">{{ form.fecha_vencimiento.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.terminos_y_condiciones.id_for_label }}" class="form-label">Términos y Condiciones</label>
+                    {{ form.terminos_y_condiciones }}
+                     {% if form.terminos_y_condiciones.errors %}
+                        <div class="text-danger small mt-1">{{ form.terminos_y_condiciones.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list-ol me-1"></i>Detalles de la Cotización</span>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#productosModal">
+                    <i class="fas fa-plus"></i> Añadir Artículo desde Catálogo
+                </button>
+            </div>
+            <div class="card-body">
+                {{ formset.management_form }}
+                {% if formset.non_form_errors %}
+                    <div class="alert alert-danger">
+                        {{ formset.non_form_errors }}
+                    </div>
+                {% endif %}
+                
+                <div class="table-responsive">
+                    <table class="table" id="detalle-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Producto</th>
+                                <th>Cantidad</th>
+                                <th>P. Unitario</th>
+                                <th>Descuento</th>
+                                <th class="text-end">Subtotal</th>
+                                <th class="text-center"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="detalle-formset">
+                            {% for form in formset %}
+                            <tr class="detalle-form" data-maneja-iva="{{ form.instance.producto.maneja_iva|yesno:'true,false' }}">
+                                <td>
+                                    {{ form.producto }}
+                                    <span class="product-name-display">{{ form.instance.producto.nombre }}</span>
+                                    {% if form.producto.errors %}<div class="text-danger small mt-1">{{ form.producto.errors|striptags }}</div>{% endif %}
+                                </td>
+                                <td>
+                                    {{ form.cantidad }}
+                                    {% if form.cantidad.errors %}<div class="text-danger small mt-1">{{ form.cantidad.errors|striptags }}</div>{% endif %}
+                                </td>
+                                <td>
+                                    {{ form.precio_unitario }}
+                                    {% if form.precio_unitario.errors %}<div class="text-danger small mt-1">{{ form.precio_unitario.errors|striptags }}</div>{% endif %}
+                                </td>
+                                <td>
+                                    {{ form.descuento }}
+                                    {% if form.descuento.errors %}<div class="text-danger small mt-1">{{ form.descuento.errors|striptags }}</div>{% endif %}
+                                </td>
+                                <td class="text-end"><span class="subtotal-linea">$0.00</span></td>
+                                <td class="text-center align-middle">
+                                    {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                                    <button type="button" class="btn btn-danger btn-sm remove-form-row">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+         <div class="mt-4 d-flex justify-content-end">
+        <a href="{% url 'cotizaciones' %}" class="btn btn-light me-2">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Guardar Cotización</button>
+    </div>
+
+        </form>
+</div>
+
+    <div class="modal fade" id="productosModal" tabindex="-1" aria-labelledby="productosModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="productosModalLabel">Catálogo de Productos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="modalSearchInput" class="form-control mb-3" placeholder="Buscar producto por nombre...">
+                    <table class="table table-hover" id="modalProductosTable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <table style="display: none;">
+        <tbody id="empty-form">
+            <tr class="detalle-form">
+                <td>
+                    {{ formset.empty_form.producto }} <span class="product-name-display"></span> </td>
+                <td>{{ formset.empty_form.cantidad }}</td>
+                <td>{{ formset.empty_form.precio_unitario }}</td>
+                <td>{{ formset.empty_form.descuento }}</td>
+                <td class="text-end">
+                    <span class="subtotal-linea">$0.00</span>
+                </td>
+                <td class="text-center align-middle">
+                    <button type="button" class="btn btn-danger btn-sm remove-form-row">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    {{ productos_json|json_script:"productos-data" }}
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+$(document).ready(function() {
+    const IVA_RATE = {{ iva_rate}}; 
+    const productos = JSON.parse(document.getElementById('productos-data').textContent);
+
+    // Función para renderizar la tabla de productos en el modal
+    function renderModalTable(filter = '') {
+        const tableBody = $('#modalProductosTable tbody');
+        tableBody.empty(); // Limpiar la tabla
+        const lowercasedFilter = filter.toLowerCase();
+
+        productos.forEach(producto => {
+            if (producto.nombre.toLowerCase().includes(lowercasedFilter)) {
+                // Verificar si el producto ya fue añadido al formulario principal
+                const isAdded = $(`#detalle-formset input[value="${producto.id}"]`).length > 0;
+                
+                const buttonHtml = isAdded 
+                    ? '<button class="btn btn-success btn-sm" disabled><i class="fas fa-check"></i> Agregado</button>'
+                    : `<button class="btn btn-primary btn-sm btn-agregar-producto" 
+                                data-product-id="${producto.id}" 
+                                data-product-name="${producto.nombre}" 
+                                data-product-price="${producto.precio}">
+                         <i class="fas fa-plus"></i> Agregar
+                       </button>`;
+                
+                const row = `
+                    <tr>
+                        <td>${producto.nombre}</td>
+                        <td class="text-end">$${parseFloat(producto.precio).toFixed(2)}</td>
+                        <td class="text-center">${buttonHtml}</td>
+                    </tr>`;
+                tableBody.append(row);
+            }
+        });
+    }
+
+    // 2. Llenar el modal la primera vez que se abre
+    $('#productosModal').on('show.bs.modal', function () {
+        renderModalTable($('#modalSearchInput').val());
+    });
+
+    // 3. Filtrar la tabla del modal al escribir en el buscador
+    $('#modalSearchInput').on('keyup', function() {
+        renderModalTable($(this).val());
+    });
+
+    // 4. Lógica para AÑADIR un producto desde el modal al formulario
+    $('#modalProductosTable').on('click', '.btn-agregar-producto', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+        const productName = button.data('product-name');
+        const productPrice = button.data('product-price');
+
+        // Añadir la fila al formset principal
+        const totalForms = document.getElementById('id_detalles-TOTAL_FORMS');
+        const formIdx = parseInt(totalForms.value);
+        
+        const newFormHtml = $('#empty-form').html().replace(/__prefix__/g, formIdx);
+        const newRow = $(newFormHtml);
+        newRow.attr('data-maneja-iva', productos.maneja_iva);
+        // Llenar la nueva fila con los datos del producto
+        newRow.find('input[id$="-producto"]').val(productId);
+        newRow.find('.product-name-display').text(productName);
+        newRow.find('.cantidad').val(1);
+        newRow.find('.precio-unitario').val(parseFloat(productPrice).toFixed(2));
+        
+        $('#detalle-formset').append(newRow);
+        totalForms.value = formIdx + 1;
+
+        // Actualizar el botón en el modal para dar feedback
+        button.prop('disabled', true).removeClass('btn-primary').addClass('btn-success').html('<i class="fas fa-check"></i> Agregado');
+        
+        updateRow(newRow); // Actualizar cálculos
+    });
+    
+    // 5. Lógica para ELIMINAR una fila del formulario principal
+    $('#detalle-formset').on('click', '.remove-form-row', function() {
+        $(this).closest('.detalle-form').remove();
+        // Al eliminar una fila, la tabla del modal se refrescará la próxima vez que se abra,
+        // mostrando el botón "Agregar" nuevamente para ese producto.
+        updateTotals();
+    });
+
+    // --- Funciones para calcular totales (igual que antes) ---
+    function updateRow(row) {
+        // 1. Obtener los valores de los inputs de la fila, convirtiéndolos a número.
+        // Usamos '|| 0' para evitar errores si el campo está vacío.
+        const cantidad = parseFloat(row.find('.cantidad').val()) || 0;
+        const precio = parseFloat(row.find('.precio-unitario').val()) || 0;
+        const descuento = parseFloat(row.find('.descuento').val()) || 0;
+
+        // 2. Calcular el subtotal para esta línea específica.
+        const subtotal = (cantidad * precio) - descuento;
+
+        // 3. Mostrar el subtotal formateado en la celda correspondiente de la fila.
+        row.find('.subtotal-linea').text('$' + subtotal.toFixed(2));
+
+        // 4. Llamar a la función de totales generales, ya que un cambio en una línea afecta el total.
+        updateTotals();
+    }
+
+    /**
+     * Calcula y actualiza los totales generales (Subtotal, IVA, Total) de toda la cotización.
+     * Recorre todas las filas de detalle para sumar sus valores.
+     */
+    function updateTotals() {
+        // 1. Inicializar las variables que acumularán los totales.
+        let subtotalGeneral = 0;
+        let ivaGeneral = 0;
+
+        // 2. Iterar sobre cada fila de detalle que existe en el formulario.
+        $('#detalle-formset .detalle-form').each(function() {
+            const row = $(this);
+            
+            // Obtener los valores de la fila actual.
+            const cantidad = parseFloat(row.find('.cantidad').val()) || 0;
+            const precio = parseFloat(row.find('.precio-unitario').val()) || 0;
+            const descuento = parseFloat(row.find('.descuento').val()) || 0;
+            
+            // Leer si el producto de esta fila grava IVA desde el atributo 'data'.
+            const manejaIva = row.attr('data-maneja-iva') === 'true';
+
+            // 3. Calcular el subtotal de la línea y sumarlo al total general.
+            const subtotalLinea = (cantidad * precio) - descuento;
+            subtotalGeneral += subtotalLinea;
+
+            // 4. Si el producto maneja IVA, calcularlo y sumarlo al total de IVA.
+            if (manejaIva) {
+                ivaGeneral += subtotalLinea * IVA_RATE; // IVA_RATE es la constante definida al inicio del script.
+            }
+        });
+
+        // 5. Calcular el importe total final.
+        const totalGeneral = subtotalGeneral + ivaGeneral;
+
+        // 6. Actualizar los elementos <span> en el bloque de totales con los nuevos valores.
+        $('#total-subtotal').text('$' + subtotalGeneral.toFixed(2));
+        $('#total-iva').text('$' + ivaGeneral.toFixed(2));
+        $('#total-general').text('$' + totalGeneral.toFixed(2));
+    }
+     $('#detalle-formset').on('keyup change', '.cantidad, .precio-unitario, .descuento', function() {
+        updateRow($(this).closest('.detalle-form'));
+    });
+});
+</script>
+{% endblock %}

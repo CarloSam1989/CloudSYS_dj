@@ -26,12 +26,11 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
 # En Render, añade tu dominio aquí, por ejemplo: 'www.misistema.com'
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.onrender.com'])
+#ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.onrender.com'])
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^+=^zbl!tt(_kx4yg5-rujr&a$y_2y7=4f*kpx1av&6wmp0m=r'
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -85,22 +84,22 @@ WSGI_APPLICATION = 'erp_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=env('DATABASE_URL'),
-        conn_max_age=600
-    )
-    }
 #DATABASES = {
- #   'default': {
-  #      'ENGINE': 'django.db.backends.postgresql',
-   #     'NAME': 'facturacion_db',
-    #    'USER': 'facturacion_user',
-     #   'PASSWORD': 'CloudSYS25**',
-      #  'HOST': 'localhost', # o la IP de tu servidor de BD
-       # 'PORT': '5432',
-    #}
-#}
+#    'default': dj_database_url.config(
+#        default=env('DATABASE_URL'),
+#        conn_max_age=600
+#    )
+#    }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'facturacion_db',
+        'USER': 'facturacion_user',
+        'PASSWORD': 'CloudSYS25**',
+        'HOST': 'localhost', # o la IP de tu servidor de BD
+        'PORT': '5432',
+    }
+}
 
 
 # Password validation

@@ -1,4 +1,4 @@
-from django.forms import formset_factory
+from django.forms import formset_factory, modelformset_factory
 from django import forms
 from .models import *
 
@@ -113,31 +113,82 @@ class CompraDetalleForm(forms.ModelForm):
 # Creamos el FormSet a partir del formulario de detalle
 CompraDetalleFormSet = formset_factory(CompraDetalleForm, extra=1)
 # 'extra=1' significa que el formulario se mostrará con una fila vacía por defecto.
+class CotizacionForm(forms.ModelForm):
+    cliente = forms.ModelChoiceField(
+        queryset=Cliente.objects.none(), # Se llenará en la vista
+        widget=forms.Select(attrs={'class': 'form-control select2'})
+    )
 
-class FacturaForm(forms.ModelForm):
     class Meta:
-        model = Factura
-        fields = ['cliente', 'punto_venta', 'fecha_emision', 'metodo_pago']
+        model = Cotizacion
+        fields = ['cliente', 'fecha_vencimiento', 'terminos_y_condiciones']
         widgets = {
-            'fecha_emision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
-            'punto_venta': forms.Select(attrs={'class': 'form-select'}),
-            'metodo_pago': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_vencimiento': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'terminos_y_condiciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
-    
-    def __init__(self, *args, **kwargs):
-        # --- CORRECCIÓN CLAVE ---
-        # Usamos .pop() para obtener 'empresa', pero de forma segura
-        empresa = kwargs.pop('empresa', None)
-        super(FacturaForm, self).__init__(*args, **kwargs)
 
-        # Solo filtramos los querysets si 'empresa' fue proporcionada
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
         if empresa:
             self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
-            self.fields['metodo_pago'].queryset = MetodoPago.objects.filter(empresa=empresa)
+
+
+class CotizacionDetalleForm(forms.ModelForm):
+    # Campo para seleccionar el producto, se filtrará por empresa en la vista/template
+    producto = forms.ModelChoiceField(
+        queryset=Producto.objects.all(), # El queryset puede ser genérico
+        widget=forms.HiddenInput()
+    )
+    
+    class Meta:
+        model = CotizacionDetalle
+        fields = ['producto', 'cantidad', 'precio_unitario', 'descuento']
+        widgets = {
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control cantidad', 'step': '0.01'}),
+            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control precio-unitario', 'step': '0.01'}),
+            'descuento': forms.NumberInput(attrs={'class': 'form-control descuento', 'step': '0.01'}),
+        }
+
+# Usamos un FormSet para manejar múltiples líneas de detalle en el formulario
+CotizacionDetalleFormSet = modelformset_factory(
+    CotizacionDetalle,
+    form=CotizacionDetalleForm,
+    extra=0, # Muestra un formulario vacío por defecto
+    can_delete=True, # Permite eliminar líneas
+    can_delete_extra=True
+)
+
+
+class FacturaForm(forms.ModelForm):
+    punto_venta = forms.ModelChoiceField(
+        queryset=PuntoVenta.objects.none(),
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    class Meta:
+        model = Factura
+        fields = ['cliente', 'punto_venta', 'fecha_emision', 'metodo_pago'] # Campos principales
+        widgets = {
+            'fecha_emision': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        if empresa:
+            self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
             self.fields['punto_venta'].queryset = PuntoVenta.objects.filter(empresa=empresa, activo=True)
+            self.fields['metodo_pago'].queryset = MetodoPago.objects.filter(empresa=empresa)
+            self.fields['cliente'].widget.attrs.update({'class': 'form-control select2'})
+FacturaDetalleForm = CotizacionDetalleForm
 
-
+FacturaDetalleFormSet = modelformset_factory(
+    FacturaDetalle,
+    form=FacturaDetalleForm,
+    extra=0,
+    can_delete=True,
+    can_delete_extra=True
+)
 
 class FacturaDetalleForm(forms.ModelForm):
     class Meta:
@@ -200,4 +251,26 @@ class ProveedorForm(forms.ModelForm):
         model = Proveedor
         # Campos que el usuario llenará en el modal
         fields = ['empresa','ruc','nombre','email','telefono','direccion']
-   
+
+class EmpresaConfigForm(forms.ModelForm):
+    class Meta:
+        model = Empresa
+        # Definimos los únicos campos que el usuario podrá editar desde esta pantalla
+        fields = ['iva_porcentaje', 'firma_electronica', 'clave_firma']
+        widgets = {
+            'iva_porcentaje': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01'
+            }),
+            'firma_electronica': forms.FileInput(attrs={
+                'class': 'form-control'
+            }),
+            'clave_firma': forms.PasswordInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ingrese la clave solo si desea cambiarla'
+            }),
+        }
+        help_texts = {
+            'firma_electronica': 'Sube un nuevo archivo .p12 solo si deseas reemplazar el actual.',
+        }
+

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cotización #{{ cotizacion.id }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11px;
+            color: #333;
+        }
+        .header {
+            display: table;
+            width: 100%;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .header-left, .header-right {
+            display: table-cell;
+            vertical-align: top;
+        }
+        .header-left {
+            width: 60%;
+        }
+        .header-right {
+            width: 40%;
+            text-align: right;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #000;
+        }
+        .client-info {
+            margin-top: 25px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+        }
+        .items-table {
+            width: 100%;
+            margin-top: 25px;
+            border-collapse: collapse;
+        }
+        .items-table th, .items-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .items-table th {
+            background-color: #f2f2f2;
+        }
+        .text-end {
+            text-align: right;
+        }
+        .totals {
+            margin-top: 25px;
+            width: 50%;
+            margin-left: 50%;
+        }
+        .totals table {
+            width: 100%;
+        }
+        .totals td {
+            padding: 5px;
+        }
+        footer {
+            position: fixed;
+            bottom: -30px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <footer>
+        Generado por SYSCLOUD CONTABLE - {{ cotizacion.empresa.nombre }}
+    </footer>
+
+    <div class="header">
+        <div class="header-left">
+            <h2>{{ cotizacion.empresa.nombre }}</h2>
+            <p>
+                <strong>RUC:</strong> {{ cotizacion.empresa.ruc }}<br>
+                {{ cotizacion.empresa.direccion }}<br>
+                {{ cotizacion.empresa.telefono }}
+            </p>
+        </div>
+        <div class="header-right">
+            <h1>COTIZACIÓN</h1>
+            <p>
+                <strong>Número:</strong> #{{ cotizacion.numero_cotizacion|default:cotizacion.id }}<br>
+                <strong>Fecha:</strong> {{ cotizacion.fecha_emision|date:"d/m/Y" }}<br>
+                <strong>Válida hasta:</strong> {{ cotizacion.fecha_vencimiento|date:"d/m/Y" }}
+            </p>
+        </div>
+    </div>
+
+    <div class="client-info">
+        <strong>Cliente:</strong> {{ cotizacion.cliente.nombre }}<br>
+        <strong>RUC/Cédula:</strong> {{ cotizacion.cliente.ruc }}<br>
+        <strong>Dirección:</strong> {{ cotizacion.cliente.direccion }}<br>
+        {% if cotizacion.atencion %}
+        <strong>Atención:</strong> {{ cotizacion.atencion }}
+        {% endif %}
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Producto/Servicio</th>
+                <th class="text-end">Cantidad</th>
+                <th class="text-end">P. Unitario</th>
+                <th class="text-end">Descuento</th>
+                <th class="text-end">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in cotizacion.detalles.all %}
+            <tr>
+                <td>{{ detalle.producto.nombre }}</td>
+                <td class="text-end">{{ detalle.cantidad|floatformat:2 }}</td>
+                <td class="text-end">${{ detalle.precio_unitario|floatformat:2 }}</td>
+                <td class="text-end">${{ detalle.descuento|floatformat:2 }}</td>
+                <td class="text-end">${{ detalle.precio_total_sin_impuesto|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <table>
+            <tr>
+                <td>Subtotal:</td>
+                <td class="text-end">${{ cotizacion.total_sin_impuestos|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>IVA ({{ cotizacion.empresa.iva_porcentaje|floatformat:0 }}%):</td>
+                <td class="text-end">${{ cotizacion.total_con_impuestos.iva_valor|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td><strong>TOTAL:</strong></td>
+                <td class="text-end"><strong>${{ cotizacion.importe_total|floatformat:2 }}</strong></td>
+            </tr>
+        </table>
+    </div>
+    
+    {% if cotizacion.terminos_y_condiciones %}
+    <div class="terms">
+        <h4>Términos y Condiciones</h4>
+        <p>{{ cotizacion.terminos_y_condiciones|linebreaksbr }}</p>
+    </div>
+    {% endif %}
+
+</body>
+</html>

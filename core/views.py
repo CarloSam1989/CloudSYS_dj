@@ -1,9 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404
 from .services import crear_nueva_venta
-from . import sri_services
-from .tasks import procesar_factura_electronica_task
-from .tasks import reenviar_factura_email_task
+from .sri_services import generar_clave_acceso, IVA_MAP
+from erp_project.celery import app
 from decimal import Decimal
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth import authenticate, login, logout
@@ -24,7 +23,7 @@ from weasyprint import HTML
 # Importa tus modelos
 from .models import *
 from .forms import *
-
+import time
 # ------------------------------
 # LOGIN Y LOGOUT
 # ------------------------------
@@ -565,28 +564,115 @@ def corregir_compra_view(request, pk):
     }
     return render(request, 'compras.html', context)
 
+def crear_nueva_venta(factura_data, detalles_data, empresa, usuario):
+    """
+    Función de servicio para crear una factura (venta) con su detalle.
+    Contiene toda la lógica de negocio.
+    """
+    with transaction.atomic():
+        punto_venta = factura_data['punto_venta']
+
+        # 1. Manejar el secuencial
+        secuencial_actual = punto_venta.secuencial_factura
+        punto_venta.secuencial_factura += 1
+        punto_venta.save()
+        secuencial_str = str(secuencial_actual).zfill(9)
+
+        # 2. Generar la clave de acceso REAL
+        clave_acceso = generar_clave_acceso(
+            fecha=factura_data['fecha_emision'],
+            tipo_comprobante='01',
+            ruc=empresa.ruc,
+            ambiente=empresa.ambiente_sri,
+            serie=f"{punto_venta.codigo_establecimiento}{punto_venta.codigo_punto_emision}",
+            secuencial=secuencial_str
+        )
+
+        # 3. Crear el objeto Factura en memoria
+        factura = Factura(
+            cliente=factura_data['cliente'],
+            punto_venta=punto_venta,
+            fecha_emision=factura_data['fecha_emision'],
+            metodo_pago=factura_data.get('metodo_pago'),
+            empresa=empresa,
+            usuario=usuario,
+            secuencial=secuencial_str,
+            clave_acceso=clave_acceso,
+            ambiente=empresa.ambiente_sri,
+            tipo_emision='1',
+            estado_sri='P',  # Procesando
+        )
+
+        # 4. Calcular totales
+        total_sin_impuestos = 0
+        base_imponible_iva = 0
+        iva_total = 0
+        iva_porcentaje = empresa.iva_porcentaje
+        iva_rate = iva_porcentaje / 100
+        codigo_porcentaje_iva = IVA_MAP.get(str(int(iva_porcentaje)), '2')
+
+        for detalle_data in detalles_data:
+            cantidad = detalle_data.get('cantidad', 0)
+            precio = detalle_data.get('precio_unitario', 0)
+            descuento = detalle_data.get('descuento', 0)
+            producto = detalle_data.get('producto')
+            
+            subtotal_linea = (cantidad * precio) - descuento
+            total_sin_impuestos += subtotal_linea
+            
+            if producto and producto.maneja_iva:
+                base_imponible_iva += subtotal_linea
+                iva_total += subtotal_linea * iva_rate
+        
+        # 5. Asignar totales a la factura y guardar
+        factura.total_sin_impuestos = total_sin_impuestos
+        factura.importe_total = total_sin_impuestos + iva_total
+        factura.total_con_impuestos = {
+            'totalImpuesto': [{'codigo': '2', 'codigoPorcentaje': codigo_porcentaje_iva, 'baseImponible': f"{base_imponible_iva:.2f}", 'valor': f"{iva_total:.2f}"}]
+        }
+        factura.save()
+
+        # 6. Crear y guardar los detalles
+        detalles_a_crear = []
+        for detalle_data in detalles_data:
+            detalle = FacturaDetalle(
+                factura=factura,
+                producto=detalle_data['producto'],
+                cantidad=detalle_data['cantidad'],
+                precio_unitario=detalle_data['precio_unitario'],
+                descuento=detalle_data['descuento'],
+            )
+            subtotal_detalle = (detalle.cantidad * detalle.precio_unitario) - detalle.descuento
+            detalle.precio_total_sin_impuesto = subtotal_detalle
+            if detalle.producto.maneja_iva:
+                iva_detalle = subtotal_detalle * iva_rate
+                detalle.impuestos = {'impuestos': [{'codigo': '2', 'codigoPorcentaje': codigo_porcentaje_iva, 'tarifa': str(int(iva_porcentaje)), 'baseImponible': f"{subtotal_detalle:.2f}", 'valor': f"{iva_detalle:.2f}"}]}
+            detalles_a_crear.append(detalle)
+        
+        FacturaDetalle.objects.bulk_create(detalles_a_crear)
+
+        # 7. Lanzar la tarea de Celery
+        app.send_task('core.tasks.enviar_factura_sri_task', args=[factura.id])
+
+        return factura
+
+
 @login_required
 def ventas_view(request):
     empresa_actual = request.user.perfil.empresa
     
     if request.method == 'POST':
         factura_form = FacturaForm(request.POST, empresa=empresa_actual)
-        detalle_formset = FacturaDetalleFormSet(request.POST, form_kwargs={'empresa': empresa_actual}, prefix='detalle')
+        detalle_formset = FacturaDetalleFormSet(request.POST, prefix='detalles')
 
         if factura_form.is_valid() and detalle_formset.is_valid():
             
-            # Filtramos para quedarnos solo con las filas que tienen productos
-            detalles_validos = [
-                form.cleaned_data for form in detalle_formset 
-                if form.has_changed() and form.cleaned_data.get('producto')
-            ]
+            detalles_validos = [form.cleaned_data for form in detalle_formset if form.has_changed() and form.cleaned_data.get('producto')]
 
             if not detalles_validos:
                 messages.error(request, "Error: La venta debe tener al menos un producto.")
             else:
                 try:
-                    # --- LLAMADA AL SERVICIO ---
-                    # Toda la lógica compleja ahora vive en una sola función
                     factura = crear_nueva_venta(
                         factura_data=factura_form.cleaned_data,
                         detalles_data=detalles_validos,
@@ -594,7 +680,7 @@ def ventas_view(request):
                         usuario=request.user
                     )
                     messages.success(request, f'Venta #{factura.secuencial} registrada exitosamente!')
-                    return redirect('ventas')
+                    return redirect('ventas') # Asegúrate que esta URL exista
                 
                 except Exception as e:
                     messages.error(request, f'Ocurrió un error inesperado al guardar la venta: {e}')
@@ -604,7 +690,7 @@ def ventas_view(request):
 
     # Lógica para la petición GET (no cambia)
     factura_form = FacturaForm(empresa=empresa_actual)
-    detalle_formset = FacturaDetalleFormSet(form_kwargs={'empresa': empresa_actual}, prefix='detalle')
+    detalle_formset = FacturaDetalleFormSet(queryset=FacturaDetalle.objects.none(), prefix='detalles')
     ventas = Factura.objects.filter(empresa=empresa_actual).order_by('-fecha_emision')
     
     context = {
@@ -612,7 +698,7 @@ def ventas_view(request):
         'factura_form': factura_form,
         'detalle_formset': detalle_formset,
     }
-    return render(request, 'ventas.html', context)
+    return render(request, 'ventas.html', context) # Asegúrate que la plantilla se llame así
 
 @login_required
 def anular_venta_view(request, pk):
@@ -760,12 +846,12 @@ def procesar_factura_ajax(request):
         try:
             factura = Factura.objects.get(pk=factura_id, empresa=request.user.perfil.empresa)
             
-            # Cambia el estado para que el usuario vea que se está procesando
             factura.estado_sri = 'P' # 'P' de Procesando
             factura.save()
             
-            # Lanza la tarea en segundo plano
-            procesar_factura_electronica_task.delay(factura_id)
+            # 2. LLAMA A LA TAREA USANDO SU NOMBRE COMO STRING
+            # El nombre es 'nombre_app.tasks.nombre_funcion'
+            app.send_task('core.tasks.enviar_factura_sri_task', args=[factura_id])
             
             return JsonResponse({'status': 'ok', 'message': 'La factura ha sido enviada a procesar.'})
         except Factura.DoesNotExist:
@@ -777,11 +863,11 @@ def procesar_factura_ajax(request):
 
 @login_required
 def consultar_estado_sri_ajax(request):
+    """Esta vista está bien, no necesita cambios."""
     factura_id = request.GET.get('factura_id')
     try:
         factura = Factura.objects.get(pk=factura_id, empresa=request.user.perfil.empresa)
         
-        # Mapeo de estados a colores de Bootstrap
         status_colors = {'A': 'success', 'R': 'danger', 'P': 'primary'}
         color = status_colors.get(factura.estado_sri, 'secondary')
         
@@ -789,29 +875,23 @@ def consultar_estado_sri_ajax(request):
             'status': 'ok',
             'estado_sri': factura.get_estado_sri_display(),
             'estado_code': factura.estado_sri,
-            'color': color
+            'color': color,
+            'sri_error': factura.sri_error, # Añadido: Envía el mensaje de error del SRI si existe
         })
     except Factura.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Factura no encontrada.'})
 
 @login_required
 def reenviar_factura_ajax(request):
-    """
-    Vista AJAX para recibir la solicitud de reenvío de una factura por correo.
-    """
-    # 1. Se asegura de que la petición sea de tipo POST
     if request.method == 'POST':
         factura_id = request.POST.get('factura_id')
         try:
-            # 2. Busca la factura y verifica que pertenezca a la empresa del usuario
             factura = Factura.objects.get(pk=factura_id, empresa=request.user.perfil.empresa)
             
-            # 3. Verifica que la factura esté AUTORIZADA ('A')
             if factura.estado_sri == 'A':
-                # 4. Delega el trabajo pesado a la tarea de Celery
-                reenviar_factura_email_task.delay(factura_id)
+                # 3. LLAMA A LA TAREA DE REENVÍO TAMBIÉN POR SU NOMBRE
+                app.send_task('core.tasks.enviar_factura_email_task', args=[factura_id])
                 
-                # 5. Responde inmediatamente al navegador con un mensaje de éxito
                 return JsonResponse({'status': 'ok', 'message': f'La factura se está enviando a {factura.cliente.email}.'})
             else:
                 return JsonResponse({'status': 'error', 'message': 'Solo se pueden reenviar facturas autorizadas.'})
@@ -872,8 +952,6 @@ def descargar_xml_view(request, factura_id):
             
     except Factura.DoesNotExist:
         raise Http404("Factura no encontrada.")
-    
-# Ubicación: core/views.py
 
 @login_required
 def descargar_xml_generado_view(request, factura_id):
@@ -965,3 +1043,342 @@ def agregar_proveedor_ajax(request):
         return JsonResponse({'status': 'error', 'errors': form.errors})
     
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'})
+
+@login_required
+def convertir_cotizacion_a_factura_ajax(request):
+    """
+    Vista AJAX para convertir una cotización aceptada en una factura.
+    Espera recibir 'cotizacion_id' y 'punto_venta_id' en la petición POST.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
+    cotizacion_id = request.POST.get('cotizacion_id')
+    punto_venta_id = request.POST.get('punto_venta_id')
+
+    if not cotizacion_id or not punto_venta_id:
+        return JsonResponse({'status': 'error', 'message': 'Faltan datos requeridos (cotización o punto de venta).'})
+
+    try:
+        empresa = request.user.perfil.empresa
+        cotizacion = Cotizacion.objects.get(pk=cotizacion_id, empresa=empresa)
+        punto_venta = PuntoVenta.objects.get(pk=punto_venta_id, empresa=empresa)
+
+        if cotizacion.estado != 'A':
+            return JsonResponse({'status': 'error', 'message': 'Solo se pueden facturar cotizaciones aceptadas.'})
+
+        if cotizacion.factura_generada:
+            return JsonResponse({'status': 'error', 'message': f'Esta cotización ya fue facturada (Factura #{cotizacion.factura_generada.id}).'})
+
+        with transaction.atomic():
+            # 1. Manejar el secuencial
+            secuencial_actual = punto_venta.secuencial_factura
+            punto_venta.secuencial_factura += 1
+            punto_venta.save()
+            secuencial_str = str(secuencial_actual).zfill(9)
+            
+            # ==========================================================
+            #                 INICIO DE LA CORRECCIÓN
+            # ==========================================================
+            # Reemplazamos el texto fijo por una llamada a la función de servicio
+            clave_acceso_generada = generar_clave_acceso(
+                fecha=timezone.now().date(),
+                tipo_comprobante='01',
+                ruc=empresa.ruc,
+                ambiente=empresa.ambiente_sri,
+                serie=f"{punto_venta.codigo_establecimiento}{punto_venta.codigo_punto_emision}",
+                secuencial=secuencial_str
+            )
+            # ==========================================================
+            #                   FIN DE LA CORRECCIÓN
+            # ==========================================================
+            
+            # 3. Crear el objeto Factura con la clave de acceso correcta
+            nueva_factura = Factura.objects.create(
+                empresa=empresa,
+                cliente=cotizacion.cliente,
+                punto_venta=punto_venta,
+                usuario=request.user,
+                ambiente=empresa.ambiente_sri,
+                tipo_emision='1',
+                secuencial=secuencial_str,
+                clave_acceso=clave_acceso_generada, # <-- Ahora es una clave válida
+                fecha_emision=timezone.now().date(),
+                total_sin_impuestos=cotizacion.total_sin_impuestos,
+                total_descuento=cotizacion.total_descuento,
+                total_con_impuestos=cotizacion.total_con_impuestos,
+                importe_total=cotizacion.importe_total,
+                estado_sri='P',
+                estado_pago='P',
+            )
+
+            # 4. Copiar los detalles
+            detalles_a_crear = []
+            for detalle_cot in cotizacion.detalles.all():
+                detalles_a_crear.append(
+                    FacturaDetalle(
+                        factura=nueva_factura,
+                        producto=detalle_cot.producto,
+                        cantidad=detalle_cot.cantidad,
+                        precio_unitario=detalle_cot.precio_unitario,
+                        descuento=detalle_cot.descuento,
+                        precio_total_sin_impuesto=detalle_cot.precio_total_sin_impuesto,
+                        impuestos=detalle_cot.impuestos,
+                    )
+                )
+            FacturaDetalle.objects.bulk_create(detalles_a_crear)
+
+            # 5. Actualizar y enlazar la cotización
+            cotizacion.factura_generada = nueva_factura
+            cotizacion.estado = 'F'
+            cotizacion.save()
+
+        # 6. Enviar la tarea a Celery
+        app.send_task('core.tasks.enviar_factura_sri_task', args=[nueva_factura.id])
+
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Factura generada exitosamente y enviada a procesar.',
+            'factura_id': nueva_factura.id
+        })
+
+    except (Cotizacion.DoesNotExist, PuntoVenta.DoesNotExist):
+        return JsonResponse({'status': 'error', 'message': 'El recurso no existe o no pertenece a su empresa.'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Error inesperado: {e}'})
+
+
+@login_required
+def lista_cotizaciones(request):
+    """
+    Muestra una lista de todas las cotizaciones de la empresa del usuario.
+    """
+    empresa = request.user.perfil.empresa
+    cotizaciones = Cotizacion.objects.filter(empresa=empresa).order_by('-fecha_emision', '-id')
+    context = {
+        'cotizaciones': cotizaciones
+    }
+    return render(request, 'cotizacion_lista.html', context)
+
+@login_required
+def detalle_cotizacion(request, cotizacion_id):
+    """
+    Muestra el detalle de una cotización específica.
+    """
+    empresa = request.user.perfil.empresa
+    cotizacion = get_object_or_404(Cotizacion, pk=cotizacion_id, empresa=empresa)
+    puntos_venta = PuntoVenta.objects.filter(empresa=empresa, activo=True)
+
+    # ==========================================================
+    #                 INICIO DE LA CORRECCIÓN
+    # ==========================================================
+    # Extraemos el valor del IVA de la estructura JSON guardada.
+    iva_calculado = Decimal('0.00') # Valor por defecto
+    try:
+        # 1. Obtenemos la lista de impuestos (normalmente solo tendrá uno)
+        total_impuesto_lista = cotizacion.total_con_impuestos.get('totalImpuesto', [])
+        if total_impuesto_lista:
+            # 2. Obtenemos el primer diccionario de la lista
+            impuesto_dict = total_impuesto_lista[0]
+            # 3. Obtenemos el valor y lo convertimos a Decimal
+            iva_calculado = Decimal(impuesto_dict.get('valor', '0.00'))
+    except (TypeError, IndexError):
+        # Si el JSON está mal formado o vacío, iva_calculado se queda en 0.
+        pass
+
+    context = {
+        'cotizacion': cotizacion,
+        'puntos_venta': puntos_venta,
+        'iva_porcentaje': empresa.iva_porcentaje, # Pasamos el % para mostrarlo en la etiqueta
+        'iva_calculado': iva_calculado, # Pasamos el valor extraído del JSON
+    }
+    # ==========================================================
+    #                   FIN DE LA CORRECCIÓN
+    # ==========================================================
+    
+    return render(request, 'cotizacion_detalle.html', context)
+
+@login_required
+def crear_cotizacion(request):
+    """
+    Gestiona la creación (GET) y el procesamiento (POST) de una nueva cotización.
+    """
+    # Se define 'empresa' al inicio para que esté disponible en toda la vista.
+    empresa = request.user.perfil.empresa
+
+    if request.method == 'POST':
+        form = CotizacionForm(request.POST, empresa=empresa)
+        formset = CotizacionDetalleFormSet(request.POST, prefix='detalles', queryset=CotizacionDetalle.objects.none())
+
+        if form.is_valid() and formset.is_valid():
+            try:
+                # Usamos una transacción para asegurar que toda la operación sea atómica.
+                with transaction.atomic():
+                    # 1. Preparar la cotización principal sin guardarla en la BD todavía
+                    cotizacion = form.save(commit=False)
+                    cotizacion.empresa = empresa
+                    cotizacion.usuario = request.user
+                    cotizacion.numero_cotizacion = f"COT-{int(time.time())}" # Generar número único
+
+                    # 2. Calcular los totales a partir de los datos validados del formset
+                    total_sin_impuestos = 0
+                    base_imponible_iva = 0
+                    iva_total = 0
+                    iva_porcentaje = empresa.iva_porcentaje
+                    iva_rate = iva_porcentaje / 100
+                    
+                    codigo_porcentaje_iva = IVA_MAP.get(str(int(iva_porcentaje)), '2')
+
+                    # Filtramos las filas que no están marcadas para borrarse
+                    detalles_validos = [f for f in formset.cleaned_data if f and not f.get('DELETE', False)]
+
+                    if not detalles_validos:
+                        raise Exception("Se debe añadir al menos un producto a la cotización.")
+
+                    for detalle_data in detalles_validos:
+                        cantidad = detalle_data.get('cantidad', 0)
+                        precio = detalle_data.get('precio_unitario', 0)
+                        descuento = detalle_data.get('descuento', 0)
+                        producto = detalle_data.get('producto')
+                        
+                        subtotal_linea = (cantidad * precio) - descuento
+                        total_sin_impuestos += subtotal_linea
+                        
+                        if producto and producto.maneja_iva:
+                            base_imponible_iva += subtotal_linea
+                            iva_total += subtotal_linea * iva_rate
+                    
+                    # 3. Asignar los totales calculados al objeto de cotización
+                    cotizacion.total_sin_impuestos = total_sin_impuestos
+                    cotizacion.importe_total = total_sin_impuestos + iva_total
+                    cotizacion.total_con_impuestos = {
+                        'totalImpuesto': [{
+                            'codigo': '2', # Código para IVA
+                            'codigoPorcentaje': codigo_porcentaje_iva,
+                            'baseImponible': f"{base_imponible_iva:.2f}",
+                            'valor': f"{iva_total:.2f}"
+                        }]
+                    }
+                    
+                    # 4. Guardar el objeto principal en la Base de Datos
+                    cotizacion.save()
+
+                    # 5. Guardar las líneas de detalle asociándolas a la cotización
+                    detalles = formset.save(commit=False)
+                    for detalle in detalles:
+                        detalle.cotizacion = cotizacion
+                        detalle.precio_total_sin_impuesto = (detalle.cantidad * detalle.precio_unitario) - detalle.descuento
+                        
+                        if detalle.producto.maneja_iva:
+                            subtotal_detalle = detalle.precio_total_sin_impuesto
+                            iva_detalle = subtotal_detalle * iva_rate
+                            detalle.impuestos = {'impuestos': [{
+                                'codigo': '2',
+                                'codigoPorcentaje': codigo_porcentaje_iva,
+                                'tarifa': str(int(iva_porcentaje)),
+                                'baseImponible': f"{subtotal_detalle:.2f}",
+                                'valor': f"{iva_detalle:.2f}"
+                            }]}
+                        detalle.save()
+
+                messages.success(request, f"Cotización #{cotizacion.numero_cotizacion} creada exitosamente.")
+                return redirect('cotizacion_detalle', cotizacion_id=cotizacion.id)
+
+            except Exception as e:
+                messages.error(request, f"Error al guardar la cotización: {e}")
+        else:
+            # Si el formulario no es válido, se construye un mensaje de error detallado
+            error_string = "Por favor, corrige los errores: "
+            for field, errors in form.errors.items():
+                error_string += f"({field}: {', '.join(errors)}) "
+            for i, form_errors in enumerate(formset.errors):
+                if form_errors:
+                    error_string += f"Línea {i+1}: {form_errors} "
+            messages.error(request, error_string)
+
+    else: # Método GET: Mostrar el formulario vacío
+        form = CotizacionForm(empresa=empresa)
+        formset = CotizacionDetalleFormSet(queryset=CotizacionDetalle.objects.none(), prefix='detalles')
+
+    # Preparar el contexto para la plantilla
+    productos = Producto.objects.filter(empresa=empresa, activo=True).values('id', 'nombre', 'precio', 'maneja_iva')
+    iva_rate_decimal = empresa.iva_porcentaje / 100
+
+    context = {
+        'form': form,
+        'formset': formset,
+        'productos_json': list(productos),
+        'iva_rate': iva_rate_decimal,
+        'iva_porcentaje': empresa.iva_porcentaje,
+    }
+    return render(request, 'cotizacion_form.html', context)
+
+@login_required
+def configuracion_empresa(request):
+    # Obtenemos la empresa del usuario que ha iniciado sesión
+    empresa = request.user.perfil.empresa
+
+    if request.method == 'POST':
+        # Pasamos los datos del POST, los archivos y la instancia a actualizar
+        form = EmpresaConfigForm(request.POST, request.FILES, instance=empresa)
+        if form.is_valid():
+            form.save()
+            messages.success(request, '¡La configuración de la empresa se ha guardado exitosamente!')
+            return redirect('config_empresa') # Redirigimos a la misma página
+        else:
+            messages.error(request, 'Por favor, corrige los errores en el formulario.')
+    else:
+        # Mostramos el formulario pre-llenado con los datos actuales de la empresa
+        form = EmpresaConfigForm(instance=empresa)
+
+    context = {
+        'form': form
+    }
+    return render(request, 'configuracion_empresa.html', context)
+
+@login_required
+def cambiar_estado_cotizacion_ajax(request):
+    if request.method == 'POST':
+        cotizacion_id = request.POST.get('cotizacion_id')
+        nuevo_estado = request.POST.get('nuevo_estado')
+        
+        # Validamos que el nuevo estado sea una opción válida
+        valid_statuses = [choice[0] for choice in Cotizacion.ESTADO_CHOICES]
+        if nuevo_estado not in valid_statuses:
+            return JsonResponse({'status': 'error', 'message': 'Estado no válido.'})
+
+        try:
+            cotizacion = Cotizacion.objects.get(pk=cotizacion_id, empresa=request.user.perfil.empresa)
+            cotizacion.estado = nuevo_estado
+            cotizacion.save()
+            return JsonResponse({'status': 'ok', 'message': f'Estado de la cotización actualizado a "{cotizacion.get_estado_display()}".'})
+        except Cotizacion.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Cotización no encontrada.'})
+            
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'})
+
+@login_required
+def generar_cotizacion_pdf(request, cotizacion_id):
+    """
+    Genera un archivo PDF para una cotización específica.
+    """
+    try:
+        # 1. Obtener la cotización, asegurando que pertenezca a la empresa del usuario
+        cotizacion = Cotizacion.objects.get(pk=cotizacion_id, empresa=request.user.perfil.empresa)
+
+        # 2. Renderizar la plantilla HTML a una cadena de texto
+        html_string = render_to_string('cotizacion_pdf.html', {'cotizacion': cotizacion})
+
+        # 3. Usar WeasyPrint para convertir la cadena HTML a PDF
+        html = HTML(string=html_string, base_url=request.build_absolute_uri())
+        pdf_file = html.write_pdf()
+
+        # 4. Crear una respuesta HTTP con el PDF
+        response = HttpResponse(pdf_file, content_type='application/pdf')
+        # Esta cabecera hace que el PDF se muestre en el navegador en lugar de descargarse
+        response['Content-Disposition'] = f'inline; filename="cotizacion_{cotizacion.id}.pdf"'
+        
+        return response
+
+    except Cotizacion.DoesNotExist:
+        return HttpResponse("Cotización no encontrada.", status=404)
