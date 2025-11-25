@@ -21,23 +21,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # Leídas desde el entorno. NUNCA las escribas directamente aquí.
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
-<<<<<<< HEAD
-
-# En Render, añade tu dominio aquí, por ejemplo: 'www.misistema.com'
-#ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.onrender.com'])
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-=======
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.onrender.com'])
->>>>>>> a8c9b190f90a6a728a980e54d39587ef531f4f5e
-
+ALLOWED_HOSTS = ['.vercel.app', '.now.sh', '127.0.0.1', 'localhost']
 
 # 3. APLICACIONES Y MIDDLEWARE
 # ==============================================================================
@@ -87,33 +71,17 @@ TEMPLATES = [
     },
 ]
 
-
-<<<<<<< HEAD
-#DATABASES = {
-#    'default': dj_database_url.config(
-#        default=env('DATABASE_URL'),
-#        conn_max_age=600
-#    )
-#    }
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'facturacion_db',
-        'USER': 'facturacion_user',
-        'PASSWORD': 'CloudSYS25**',
-        'HOST': 'localhost', # o la IP de tu servidor de BD
-        'PORT': '5432',
-    }
-=======
 # 6. BASE DE DATOS
 # ==============================================================================
-# dj-database-url leerá la variable DATABASE_URL de Render y la configurará por ti.
+# Elimina el bloque anterior que tenía USER y PASSWORD en texto plano.
+# Usa solo este bloque:
+
 DATABASES = {
     'default': dj_database_url.config(
         default=env('DATABASE_URL'),
-        conn_max_age=600
+        conn_max_age=600,
+        ssl_require=True  # Recomendado para producción (Postgres)
     )
->>>>>>> a8c9b190f90a6a728a980e54d39587ef531f4f5e
 }
 
 
@@ -138,13 +106,10 @@ USE_TZ = True
 
 # 9. ARCHIVOS ESTÁTICOS (CSS, JS, Imágenes)
 # ==============================================================================
-STATIC_URL = 'static/'
-# Para desarrollo local
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-# Para producción (Render necesita esta línea)
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-# Para que WhiteNoise sirva los archivos de forma eficiente
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 
 # 10. CONFIGURACIÓN DE CELERY
