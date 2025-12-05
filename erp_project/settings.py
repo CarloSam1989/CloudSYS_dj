@@ -77,11 +77,14 @@ TEMPLATES = [
 # Usa solo este bloque:
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=env('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True  # Recomendado para producción (Postgres)
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'facturacion_db',
+        'USER': 'facturacion_user',
+        'PASSWORD': 'CloudSYS25**',
+        'HOST': 'localhost', # o la IP de tu servidor de BD
+        'PORT': '5432',
+    }
 }
 
 
@@ -114,9 +117,14 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # 10. CONFIGURACIÓN DE CELERY
 # ==============================================================================
-# Lee la URL de Redis desde las variables de entorno de Render
-CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
+# Vercel no tiene Redis local. Si no hay variable, ponemos None para que no crashée al inicio,
+# o asegúrate de poner la URL de Upstash/RedisLabs en las variables de entorno de Vercel.
+CELERY_BROKER_URL = env('REDIS_URL', default=None)
+CELERY_RESULT_BACKEND = env('REDIS_URL', default=None)
+
+# Opcional: Evita que Celery se queje si no hay URL configurada durante el build
+if not CELERY_BROKER_URL:
+    print("ADVERTENCIA: Celery no está configurado. Las tareas asíncronas fallarán.")
 
 
 # 11. CONFIGURACIÓN DE CORREO (EJEMPLO)
