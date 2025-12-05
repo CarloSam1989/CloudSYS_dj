@@ -77,14 +77,7 @@ TEMPLATES = [
 # Usa solo este bloque:
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'facturacion_db',
-        'USER': 'facturacion_user',
-        'PASSWORD': 'CloudSYS25**',
-        'HOST': 'localhost', # o la IP de tu servidor de BD
-        'PORT': '5432',
-    }
+    'default': env.db(),
 }
 
 
