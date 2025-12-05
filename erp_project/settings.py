@@ -77,7 +77,7 @@ TEMPLATES = [
 # Usa solo este bloque:
 
 DATABASES = {
-    'default': env.db(),
+    'default': env.db(default=f"postgres://{env('DB_USER')}:{env('DB_PASSWORD')}@{env('DB_HOST')}:{env('DB_PORT')}/{env('DB_NAME')}")
 }
 
 
@@ -110,10 +110,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # 10. CONFIGURACIÓN DE CELERY
 # ==============================================================================
-# Vercel no tiene Redis local. Si no hay variable, ponemos None para que no crashée al inicio,
-# o asegúrate de poner la URL de Upstash/RedisLabs en las variables de entorno de Vercel.
-CELERY_BROKER_URL = env('REDIS_URL', default=None)
-CELERY_RESULT_BACKEND = env('REDIS_URL', default=None)
+CELERY_BROKER_URL = env('REDIS_URL')
+CELERY_RESULT_BACKEND = env('REDIS_URL')
 
 # Opcional: Evita que Celery se queje si no hay URL configurada durante el build
 if not CELERY_BROKER_URL:
