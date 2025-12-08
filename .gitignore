@@ -1,7 +1,6 @@
 # Entorno Virtual
 venv/
 env/
-.env
 
 # Archivos de Django
 db.sqlite3
