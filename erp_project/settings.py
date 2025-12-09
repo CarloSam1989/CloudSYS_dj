@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import environ
-import urllib.parse
+
 
 # 1. CONFIGURACIÓN INICIAL Y DE ENTORNO
 # ==============================================================================
@@ -73,13 +73,15 @@ TEMPLATES = [
 
 # 6. BASE DE DATOS
 # ==============================================================================
-# Codificamos la contraseña para que los ** o @ no rompan la conexión
-password_codificada = urllib.parse.quote_plus(env('DB_PASSWORD'))
-
 DATABASES = {
-    'default': env.db(
-        default=f"postgres://{env('DB_USER')}:{password_codificada}@{env('DB_HOST')}:{env('DB_PORT')}/{env('DB_NAME')}"
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),         
+        'PASSWORD': env('DB_PASSWORD'), 
+        'HOST': env('DB_HOST'),         
+        'PORT': env('DB_PORT'),
+    }
 }
 
 # 7. VALIDACIÓN DE CONTRASEÑAS Y AUTENTICACIÓN
