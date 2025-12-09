@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import environ
-import dj_database_url
+import urllib.parse
 
 # 1. CONFIGURACIÓN INICIAL Y DE ENTORNO
 # ==============================================================================
@@ -73,13 +73,14 @@ TEMPLATES = [
 
 # 6. BASE DE DATOS
 # ==============================================================================
-# Elimina el bloque anterior que tenía USER y PASSWORD en texto plano.
-# Usa solo este bloque:
+# Codificamos la contraseña para que los ** o @ no rompan la conexión
+password_codificada = urllib.parse.quote_plus(env('DB_PASSWORD'))
 
 DATABASES = {
-    'default': env.db(default=f"postgres://{env('DB_USER')}:{env('DB_PASSWORD')}@{env('DB_HOST')}:{env('DB_PORT')}/{env('DB_NAME')}")
+    'default': env.db(
+        default=f"postgres://{env('DB_USER')}:{password_codificada}@{env('DB_HOST')}:{env('DB_PORT')}/{env('DB_NAME')}"
+    )
 }
-
 
 # 7. VALIDACIÓN DE CONTRASEÑAS Y AUTENTICACIÓN
 # ==============================================================================
