@@ -61,13 +61,11 @@
                 <div class="sb-sidenav-menu">
                     <div class="nav">
                         
-                        <div class="sb-sidenav-menu-heading">Principal</div>
                         <a class="nav-link" href="{% url 'dashboard' %}">
                             <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
                             Dashboard
                         </a>
 
-                        <div class="sb-sidenav-menu-heading">Gestión</div>
                         
                         <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePersonas" aria-expanded="false" aria-controls="collapsePersonas">
                             <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
@@ -94,7 +92,6 @@
                             </nav>
                         </div>
 
-                        <div class="sb-sidenav-menu-heading">Operaciones</div>
                         
                         <a class="nav-link" href="{% url 'inventario' %}">
                             <div class="sb-nav-link-icon"><i class="fa-solid fa-warehouse"></i></div>
@@ -106,7 +103,6 @@
                         </a>
 
                         {% if user.is_superuser %}
-                        <div class="sb-sidenav-menu-heading">Sistema</div>
                         <a class="nav-link" href="{% url 'admin:index' %}">
                             <div class="sb-nav-link-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
                             Admin Panel
