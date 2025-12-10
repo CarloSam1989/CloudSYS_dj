@@ -690,7 +690,7 @@ def ventas_view(request):
 
     # Lógica para la petición GET (no cambia)
     factura_form = FacturaForm(empresa=empresa_actual)
-    detalle_formset = FacturaDetalleFormSet(queryset=FacturaDetalle.objects.none(), prefix='detalles')
+    detalle_formset = FacturaDetalleFormSet(prefix='detalles')
     ventas = Factura.objects.filter(empresa=empresa_actual).order_by('-fecha_emision')
     
     context = {
@@ -698,7 +698,7 @@ def ventas_view(request):
         'factura_form': factura_form,
         'detalle_formset': detalle_formset,
     }
-    return render(request, 'ventas.html', context) # Asegúrate que la plantilla se llame así
+    return render(request, 'ventas.html', context) 
 
 @login_required
 def anular_venta_view(request, pk):
