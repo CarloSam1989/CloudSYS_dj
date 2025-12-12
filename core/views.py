@@ -87,92 +87,113 @@ def logout_view(request):
 @login_required
 def dashboard_view(request):
     """
-    Controla toda la lógica para mostrar los datos en el panel principal.
+    Vista híbrida:
+    1. Si es Cliente Banco -> Lo manda a su Home Banking.
+    2. Si es Empleado ERP -> Le calcula y muestra el Dashboard Contable.
     """
-    empresa_actual = request.user.perfil.empresa
-    today = timezone.now()
+    
+    # --- 1. FILTRO DE BANQUITO (PRIORIDAD ALTA) ---
+    # Si el usuario es un Cliente del Banco, lo sacamos de aquí inmediatamente.
+    if hasattr(request.user, 'perfil_cliente') and request.user.perfil_cliente is not None:
+        return redirect('core:home_banking')
 
-    # --- 1. INDICADORES ---
-    total_vendido_mes = Factura.objects.filter(
-        empresa=empresa_actual,
-        fecha_emision__year=today.year,
-        fecha_emision__month=today.month
-    ).aggregate(total=Sum('importe_total'))['total'] or 0
+    # --- 2. LÓGICA ERP (TU CÓDIGO MEJORADO) ---
+    try:
+        # Intentamos obtener la empresa. Si falla aquí, es porque no es empleado.
+        empresa_actual = request.user.perfil.empresa 
+        today = timezone.now()
 
-    total_comprado_mes = Compra.objects.filter(
-        empresa=empresa_actual,
-        fecha__year=today.year,
-        fecha__month=today.month,
-        estado='A'
-    ).aggregate(total=Sum('total'))['total'] or 0
+        # === AQUI EMPIEZA TU LÓGICA DE CÁLCULO ===
+        
+        # A. Indicadores
+        total_vendido_mes = Factura.objects.filter(
+            empresa=empresa_actual,
+            fecha_emision__year=today.year,
+            fecha_emision__month=today.month
+        ).aggregate(total=Sum('importe_total'))['total'] or 0
 
-    stock_bajo = Producto.objects.filter(
-        empresa=empresa_actual,
-        stock__lt=5
-    ).count()
+        total_comprado_mes = Compra.objects.filter(
+            empresa=empresa_actual,
+            fecha__year=today.year,
+            fecha__month=today.month,
+            estado='A'
+        ).aggregate(total=Sum('total'))['total'] or 0
 
-    facturas_pendientes_sri = Factura.objects.filter(
-        empresa=empresa_actual,
-        estado_sri='P'
-    ).count()
+        stock_bajo = Producto.objects.filter(
+            empresa=empresa_actual,
+            stock__lt=5
+        ).count()
 
-    indicadores = {
-        'total_vendido': f"{total_vendido_mes:,.2f}",
-        'total_comprado': f"{total_comprado_mes:,.2f}",
-        'stock_bajo': stock_bajo,
-        'facturas_pendientes': facturas_pendientes_sri,
-    }
+        facturas_pendientes_sri = Factura.objects.filter(
+            empresa=empresa_actual,
+            estado_sri='P'
+        ).count()
 
-    # --- 2. GRÁFICO COMPRAS VS VENTAS ---
-    fecha_inicio = today - relativedelta(months=5)
-    fecha_inicio = fecha_inicio.replace(day=1)
+        indicadores = {
+            'total_vendido': f"{total_vendido_mes:,.2f}",
+            'total_comprado': f"{total_comprado_mes:,.2f}",
+            'stock_bajo': stock_bajo,
+            'facturas_pendientes': facturas_pendientes_sri,
+        }
 
-    ventas_por_mes = Factura.objects.filter(
-        empresa=empresa_actual,
-        fecha_emision__gte=fecha_inicio
-    ).annotate(
-        mes=TruncMonth('fecha_emision')
-    ).values('mes').annotate(
-        total_ventas=Sum('importe_total')
-    ).order_by('mes')
+        # B. Gráfico
+        fecha_inicio = today - relativedelta(months=5)
+        fecha_inicio = fecha_inicio.replace(day=1)
 
-    compras_por_mes = Compra.objects.filter(
-        empresa=empresa_actual,
-        fecha__gte=fecha_inicio
-    ).annotate(
-        mes=TruncMonth('fecha')
-    ).values('mes').annotate(
-        total_compras=Sum('total')
-    ).order_by('mes')
+        ventas_por_mes = Factura.objects.filter(
+            empresa=empresa_actual,
+            fecha_emision__gte=fecha_inicio
+        ).annotate(mes=TruncMonth('fecha_emision')).values('mes').annotate(
+            total_ventas=Sum('importe_total')
+        ).order_by('mes')
 
-    ventas_dict = {v['mes'].strftime('%b %Y'): float(v['total_ventas']) for v in ventas_por_mes}
-    compras_dict = {c['mes'].strftime('%b %Y'): float(c['total_compras']) for c in compras_por_mes}
+        compras_por_mes = Compra.objects.filter(
+            empresa=empresa_actual,
+            fecha__gte=fecha_inicio
+        ).annotate(mes=TruncMonth('fecha')).values('mes').annotate(
+            total_compras=Sum('total')
+        ).order_by('mes')
 
-    labels_grafico = [(fecha_inicio + relativedelta(months=i)).strftime('%b %Y') for i in range(6)]
-    data_ventas = [ventas_dict.get(label, 0) for label in labels_grafico]
-    data_compras = [compras_dict.get(label, 0) for label in labels_grafico]
+        ventas_dict = {v['mes'].strftime('%b %Y'): float(v['total_ventas']) for v in ventas_por_mes}
+        compras_dict = {c['mes'].strftime('%b %Y'): float(c['total_compras']) for c in compras_por_mes}
 
-    grafico_data = {
-        "labels": labels_grafico,
-        "ventas": data_ventas,
-        "compras": data_compras,
-    }
+        labels_grafico = [(fecha_inicio + relativedelta(months=i)).strftime('%b %Y') for i in range(6)]
+        data_ventas = [ventas_dict.get(label, 0) for label in labels_grafico]
+        data_compras = [compras_dict.get(label, 0) for label in labels_grafico]
 
-    # --- 3. CLIENTES NUEVOS ESTE MES ---
-    clientes_nuevos_mes = Cliente.objects.filter(
-        empresa=empresa_actual,
-        fecha_creacion__year=today.year,
-        fecha_creacion__month=today.month
-    ).count()
+        grafico_data = {
+            "labels": labels_grafico,
+            "ventas": data_ventas,
+            "compras": data_compras,
+        }
 
-    # --- CONTEXTO FINAL ---
-    context = {
-        'indicadores': indicadores,
-        'clientes_nuevos': clientes_nuevos_mes,
-        'grafico_json': json.dumps(grafico_data),
-    }
+        # C. Clientes Nuevos
+        clientes_nuevos_mes = Cliente.objects.filter(
+            empresa=empresa_actual,
+            fecha_creacion__year=today.year,
+            fecha_creacion__month=today.month
+        ).count()
 
-    return render(request, 'dashboard.html', context)
+        context = {
+            'empresa': empresa_actual, # Importante para que el header sepa qué empresa es
+            'indicadores': indicadores,
+            'clientes_nuevos': clientes_nuevos_mes,
+            'grafico_json': json.dumps(grafico_data),
+        }
+
+        return render(request, 'dashboard.html', context)
+        # === FIN DE TU LÓGICA ===
+
+    except AttributeError:
+        # --- 3. RED DE SEGURIDAD ---
+        # Si el usuario NO tiene perfil de empleado y NO es cliente del banco
+        # (Ej: un usuario superadmin nuevo que olvidaste configurar)
+        if request.user.is_superuser:
+            return redirect('/admin/')
+            
+        return render(request, 'banco/error_no_cliente.html', {
+            'mensaje': 'Tu usuario no tiene rol asignado (Ni Empresa, ni Banca).'
+        })
 
 # ------------------------------
 # VISTAS DE MÓDULOS (PLACEHOLDERS)

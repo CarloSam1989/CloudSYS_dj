@@ -1,11 +1,5 @@
 from django.contrib import admin
-from .models import (
-    Empresa, Perfil, PuntoVenta, Cliente, Proveedor, Categoria, Marca, Modelo,
-    Producto, Compra, CompraDetalle, MetodoPago, Factura, FacturaDetalle,
-    PagoFactura, Cotizacion, CotizacionDetalle, MovimientoInventario,
-    Promocion, Bitacora
-)
-
+from .models import *
 # ==============================================================================
 # 1. ADMINS CENTRALES (MULTITENANCY Y CONFIGURACIÓN)
 # ==============================================================================
@@ -103,4 +97,19 @@ class FacturaAdmin(admin.ModelAdmin):
 # ==============================================================================
 admin.site.register(Bitacora)
 admin.site.register(MovimientoInventario)
-# ... puedes seguir personalizando el resto de modelos si lo necesitas ...
+# Registro básico
+admin.site.register(Empresa)
+
+
+# Registro avanzado para Cuentas
+@admin.register(CuentaBancaria)
+class CuentaBancariaAdmin(admin.ModelAdmin):
+    list_display = ('numero_cuenta', 'cliente', 'tipo', 'saldo', 'activa')
+    search_fields = ('numero_cuenta', 'cliente__nombre')
+    list_filter = ('tipo', 'activa')
+
+# Registro para ver las transacciones
+@admin.register(TransaccionBancaria)
+class TransaccionBancariaAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'cuenta', 'tipo', 'monto')
+    list_filter = ('tipo', 'fecha')
