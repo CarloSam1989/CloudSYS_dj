@@ -15,24 +15,31 @@
     <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
     
     <style>
-        /* Ajuste para que el logo y el texto se vean bien alineados */
         .navbar-brand {
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 1.1rem; /* Ajustar si el nombre es muy largo */
+            font-size: 1.1rem;
         }
         .navbar-brand img {
             object-fit: cover;
+        }
+        /* Estilo especial para menú bancario */
+        .sb-sidenav-dark .sb-sidenav-menu .nav-link.banking-link {
+            color: #6fb3e0;
+        }
+        .sb-sidenav-dark .sb-sidenav-menu .nav-link.banking-link:hover {
+            color: #fff;
         }
     </style>
 </head>
 <body class="sb-nav-fixed">
 
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
-        <a class="navbar-brand ps-3" href="{% url 'dashboard' %}">
+        <a class="navbar-brand ps-3" href="{% if user.perfil_cliente %}{% url 'core:home_banking' %}{% else %}{% url 'dashboard' %}{% endif %}">
             <img src="{% static 'img/logo.jpg' %}" alt="Logo" width="40" height="40" style="border-radius: 50%" />
-            <span class="d-none d-sm-inline">CLOUDCENTER</span> <span class="d-inline d-sm-none">SYSCLOUD</span> </a>
+            <span class="d-none d-sm-inline">CLOUDCENTER</span> <span class="d-inline d-sm-none">SYSCLOUD</span> 
+        </a>
         
         <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
         
@@ -45,10 +52,19 @@
                     <i class="fas fa-user fa-fw"></i> 
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                    <li><h6 class="dropdown-header">Empresa: {{ user.perfil.empresa.nombre }}</h6></li>
+                    {% if user.perfil_cliente %}
+                        <li><h6 class="dropdown-header">Cliente Bancario</h6></li>
+                    {% else %}
+                        <li><h6 class="dropdown-header">Empresa: {{ user.perfil.empresa.nombre }}</h6></li>
+                    {% endif %}
+                    
                     <li><hr class="dropdown-divider" /></li>
+                    
+                    {% if not user.perfil_cliente %}
                     <li><a class="dropdown-item" href="{% url 'config_empresa' %}">Configuración</a></li>
                     <li><hr class="dropdown-divider" /></li>
+                    {% endif %}
+                    
                     <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar Sesión</a></li>
                 </ul>
             </li>
@@ -61,55 +77,88 @@
                 <div class="sb-sidenav-menu">
                     <div class="nav">
                         
-                        <a class="nav-link" href="{% url 'dashboard' %}">
-                            <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                            Dashboard
-                        </a>
+                        {% if user.perfil_cliente %}
+                            <div class="sb-sidenav-menu-heading text-info">BANCA EN LÍNEA</div>
+                            
+                            <a class="nav-link banking-link" href="{% url 'core:home_banking' %}">
+                                <div class="sb-nav-link-icon text-info"><i class="fas fa-building-columns"></i></div>
+                                Posición Global
+                            </a>
+                            
+                            <a class="nav-link banking-link" href="#">
+                                <div class="sb-nav-link-icon text-info"><i class="fas fa-money-bill-transfer"></i></div>
+                                Transferencias
+                            </a>
+                            
+                            <a class="nav-link banking-link" href="#">
+                                <div class="sb-nav-link-icon text-info"><i class="fas fa-file-invoice-dollar"></i></div>
+                                Extractos
+                            </a>
 
+                        {% else %}
                         
-                        <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePersonas" aria-expanded="false" aria-controls="collapsePersonas">
-                            <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
-                            Personas
-                            <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                        </a>
-                        <div class="collapse" id="collapsePersonas" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
-                            <nav class="sb-sidenav-menu-nested nav">
-                                <a class="nav-link" href="#" onclick="alert('Debes crear la URL clientes')">Clientes</a> 
-                                <a class="nav-link" href="{% url 'proveedores' %}">Proveedores</a>
-                            </nav>
-                        </div>
+                            <div class="sb-sidenav-menu-heading">ERP EMPRESARIAL</div>
 
-                        <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseVentas" aria-expanded="false" aria-controls="collapseVentas">
-                            <div class="sb-nav-link-icon"><i class="fa-solid fa-cash-register"></i></div>
-                            Ventas
-                            <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                        </a>
-                        <div class="collapse" id="collapseVentas" aria-labelledby="headingTwo" data-bs-parent="#sidenavAccordion">
-                            <nav class="sb-sidenav-menu-nested nav">
-                                <a class="nav-link" href="{% url 'ventas' %}">Nueva Factura</a>
-                                <a class="nav-link" href="{% url 'cotizaciones' %}">Cotizaciones</a>
-                                <a class="nav-link" href="{% url 'facturacion_electronica' %}">Historial Ventas</a>
-                            </nav>
-                        </div>
+                            <a class="nav-link" href="{% url 'dashboard' %}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
+                                Dashboard
+                            </a>
 
+                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePersonas" aria-expanded="false" aria-controls="collapsePersonas">
+                                <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
+                                Personas
+                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                            </a>
+                            <div class="collapse" id="collapsePersonas" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
+                                <nav class="sb-sidenav-menu-nested nav">
+                                    <a class="nav-link" href="#" onclick="alert('Debes crear la URL clientes')">Clientes</a> 
+                                    <a class="nav-link" href="{% url 'proveedores' %}">Proveedores</a>
+                                </nav>
+                            </div>
+
+                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseVentas" aria-expanded="false" aria-controls="collapseVentas">
+                                <div class="sb-nav-link-icon"><i class="fa-solid fa-cash-register"></i></div>
+                                Ventas
+                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                            </a>
+                            <div class="collapse" id="collapseVentas" aria-labelledby="headingTwo" data-bs-parent="#sidenavAccordion">
+                                <nav class="sb-sidenav-menu-nested nav">
+                                    <a class="nav-link" href="{% url 'ventas' %}">Nueva Factura</a>
+                                    <a class="nav-link" href="{% url 'cotizaciones' %}">Cotizaciones</a>
+                                    <a class="nav-link" href="{% url 'facturacion_electronica' %}">Historial Ventas</a>
+                                </nav>
+                            </div>
+                            
+                            <a class="nav-link" href="{% url 'inventario' %}">
+                                <div class="sb-nav-link-icon"><i class="fa-solid fa-warehouse"></i></div>
+                                Inventario
+                            </a>
+                            
+                            <a class="nav-link" href="{% url 'compras' %}">
+                                <div class="sb-nav-link-icon"><i class="fa-regular fa-credit-card"></i></div>
+                                Compras
+                            </a>
+
+                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseFinanzas" aria-expanded="false">
+                                <div class="sb-nav-link-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                                Finanzas
+                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                            </a>
+                            <div class="collapse" id="collapseFinanzas" data-bs-parent="#sidenavAccordion">
+                                <nav class="sb-sidenav-menu-nested nav">
+                                    <a class="nav-link" href="{% url 'core:caja_list' %}">Cajas Chicas</a>
+                                    <a class="nav-link" href="{% url 'core:prestamo_list' %}">Préstamos</a>
+                                </nav>
+                            </div>
+
+                            {% if user.is_superuser %}
+                            <a class="nav-link" href="{% url 'admin:index' %}">
+                                <div class="sb-nav-link-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                                Admin Panel
+                            </a>
+                            {% endif %}
                         
-                        <a class="nav-link" href="{% url 'inventario' %}">
-                            <div class="sb-nav-link-icon"><i class="fa-solid fa-warehouse"></i></div>
-                            Inventario
-                        </a>
-                        <a class="nav-link" href="{% url 'compras' %}">
-                            <div class="sb-nav-link-icon"><i class="fa-regular fa-credit-card"></i></div>
-                            Compras
-                        </a>
-
-                        {% if user.is_superuser %}
-                        <a class="nav-link" href="{% url 'admin:index' %}">
-                            <div class="sb-nav-link-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
-                            Admin Panel
-                        </a>
-                        {% endif %}
-
-                    </div>
+                        {% endif %} </div>
                 </div>
                 
                 <div class="sb-sidenav-footer">
@@ -138,9 +187,13 @@
             <footer class="py-4 bg-light mt-auto">
                 <div class="container-fluid px-4">
                     <div class="d-flex align-items-center justify-content-between small">
-                        <div class="text-muted">Copyright &copy; SYSCLOUD CONTABLE 2025</div>
+                        <div class="text-muted">Copyright &copy; SYSCLOUD 2025</div>
                         <div>
-                            <span class="text-muted">{{ user.perfil.empresa.nombre }}</span>
+                            {% if user.perfil_cliente %}
+                                <span class="text-primary fw-bold">Banquito Online</span>
+                            {% else %}
+                                <span class="text-muted">{{ user.perfil.empresa.nombre }}</span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
