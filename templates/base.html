@@ -80,7 +80,7 @@
                         {% if user.perfil_cliente %}
                             <div class="sb-sidenav-menu-heading text-info">BANCA EN LÍNEA</div>
                             
-                            <a class="nav-link banking-link" href="{% url 'core:home_banking' %}">
+                            <a class="nav-link banking-link" href="{% url 'home_banking' %}">
                                 <div class="sb-nav-link-icon text-info"><i class="fas fa-building-columns"></i></div>
                                 Posición Global
                             </a>
@@ -146,8 +146,8 @@
                             </a>
                             <div class="collapse" id="collapseFinanzas" data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
-                                    <a class="nav-link" href="{% url 'core:caja_list' %}">Cajas Chicas</a>
-                                    <a class="nav-link" href="{% url 'core:prestamo_list' %}">Préstamos</a>
+                                    <a class="nav-link" href="{% url 'caja_list' %}">Cajas Chicas</a>
+                                    <a class="nav-link" href="{% url 'prestamo_list' %}">Préstamos</a>
                                 </nav>
                             </div>
 
