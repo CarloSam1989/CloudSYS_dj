@@ -27,6 +27,32 @@ import time
 # ------------------------------
 # LOGIN Y LOGOUT
 # ------------------------------
+@login_required
+def home_banking_view(request):
+    try:
+        # 1. Identificar quién es el cliente basado en el usuario logueado
+        # Gracias al OneToOneField, podemos acceder con request.user.perfil_cliente
+        cliente_actual = request.user.perfil_cliente
+        
+        # 2. Buscar SOLO las cuentas de este cliente
+        mis_cuentas = cliente_actual.cuentas_bancarias.all() # Usando el related_name del modelo CuentaBancaria
+        
+        # 3. Buscar los últimos movimientos (opcional, uniendo todas las cuentas)
+        ultimos_movimientos = []
+        for cuenta in mis_cuentas:
+            ultimos_movimientos.extend(cuenta.transacciones.all().order_by('-fecha')[:5])
+
+        return render(request, 'banco/dashboard.html', {
+            'cliente': cliente_actual,
+            'cuentas': mis_cuentas,
+            'movimientos': ultimos_movimientos
+        })
+
+    except AttributeError:
+        # Caso de error: El usuario se logueó, pero no está asignado a ningún Cliente en la BD
+        return render(request, 'banco/error_no_cliente.html', {
+            'mensaje': 'Tu usuario no tiene un perfil bancario asociado. Contacta al banco.'
+        })
 
 def login_view(request):
     """ Vista para iniciar sesión """

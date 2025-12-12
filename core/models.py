@@ -74,6 +74,14 @@ class Cliente(models.Model):
     direccion = models.CharField(max_length=300, verbose_name="Dirección")
     telefono = models.CharField(max_length=20, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='perfil_cliente',
+        verbose_name="Usuario de Acceso (Home Banking)"
+    )
 
     def __str__(self):
         return self.nombre

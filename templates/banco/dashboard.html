@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h1 class="h3">Hola, {{ cliente.nombre }} 👋</h1>
+            <p class="text-muted">Bienvenido a tu Banca Virtual</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <span class="badge bg-light text-dark border p-2">
+                Último acceso: {% now "d M Y" %}
+            </span>
+        </div>
+    </div>
+
+    <h5 class="mb-3 text-secondary">Mis Productos</h5>
+    <div class="row">
+        {% for cuenta in cuentas %}
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm border-0 h-100" style="background: linear-gradient(135deg, #004e92 0%, #000428 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <span>{{ cuenta.get_tipo_display }}</span>
+                        <i class="bi bi-bank"></i>
+                    </div>
+                    <h3 class="my-3">${{ cuenta.saldo }}</h3>
+                    <div class="small opacity-75">
+                        Nro: {{ cuenta.numero_cuenta }}
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top border-light border-opacity-25">
+                    <a href="#" class="text-white text-decoration-none small">Ver movimientos ></a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-warning">
+                No tienes cuentas activas asignadas. Contacta a servicio al cliente.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="mb-3 text-secondary">Actividad Reciente</h5>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cuenta</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in movimientos %}
+                            <tr>
+                                <td>{{ mov.fecha|date:"d M, H:i" }}</td>
+                                <td><span class="badge bg-secondary">{{ mov.cuenta.numero_cuenta }}</span></td>
+                                <td>{{ mov.descripcion }}</td>
+                                <td class="text-end fw-bold {% if mov.tipo == 'RET' %}text-danger{% else %}text-success{% endif %}">
+                                    {% if mov.tipo == 'RET' %}-{% else %}+{% endif %}${{ mov.monto }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    No hay movimientos recientes.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

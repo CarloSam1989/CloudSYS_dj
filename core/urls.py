@@ -86,4 +86,5 @@ urlpatterns = [
     
     # 5. Registrar un pago/abono de cuota
     path('finanzas/prestamos/<int:pk>/abonar/', views.registrar_abono_prestamo, name='prestamo_abono'),
+    path('mi-banco/', views.home_banking_view, name='home_banking'),
 ]
