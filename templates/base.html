@@ -36,7 +36,7 @@
 <body class="sb-nav-fixed">
 
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
-        <a class="navbar-brand ps-3" href="{% if user.perfil_cliente %}{% url 'core:home_banking' %}{% else %}{% url 'dashboard' %}{% endif %}">
+        <a class="navbar-brand ps-3" href="{% if user.perfil_cliente %}{% url 'home_banking' %}{% else %}{% url 'dashboard' %}{% endif %}">
             <img src="{% static 'img/logo.jpg' %}" alt="Logo" width="40" height="40" style="border-radius: 50%" />
             <span class="d-none d-sm-inline">CLOUDCENTER</span> <span class="d-inline d-sm-none">SYSCLOUD</span> 
         </a>
