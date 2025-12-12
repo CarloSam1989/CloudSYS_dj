@@ -656,7 +656,6 @@ def crear_nueva_venta(factura_data, detalles_data, empresa, usuario):
 
         return factura
 
-
 @login_required
 def ventas_view(request):
     empresa_actual = request.user.perfil.empresa
@@ -1147,7 +1146,6 @@ def convertir_cotizacion_a_factura_ajax(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'Error inesperado: {e}'})
 
-
 @login_required
 def lista_cotizaciones(request):
     """
@@ -1382,3 +1380,41 @@ def generar_cotizacion_pdf(request, cotizacion_id):
 
     except Cotizacion.DoesNotExist:
         return HttpResponse("Cotización no encontrada.", status=404)
+    
+def caja_chica_list(request):
+    cajas = CajaChica.objects.all()
+    return render(request, 'finanzas/caja_list.html', {'cajas': cajas})
+
+def caja_chica_detail(request, pk):
+    caja = get_object_or_404(CajaChica, pk=pk)
+    return render(request, 'finanzas/caja_detail.html', {'caja': caja})
+
+def registrar_movimiento_caja(request, pk):
+    # Aquí iría la lógica del formulario de ingreso/egreso
+    return HttpResponse(f"Formulario para registrar movimiento en caja {pk}")
+
+def prestamo_list(request):
+    prestamos = Prestamo.objects.all()
+    return render(request, 'finanzas/prestamo_list.html', {'prestamos': prestamos})
+
+def prestamo_create(request):
+    # Aquí iría el formulario de creación de préstamo
+    return HttpResponse("Formulario nuevo préstamo")
+
+def registrar_abono_prestamo(request, pk):
+    # Aquí iría la lógica para subir el comprobante y registrar pago
+    return HttpResponse(f"Formulario para abonar al préstamo {pk}")
+
+def generar_tabla_view(request, pk):
+    prestamo = get_object_or_404(Prestamo, pk=pk)
+    # Ejecutamos la lógica matemática
+    prestamo.generar_tabla_amortizacion()
+    return redirect('core:prestamo_detail', pk=pk)
+
+def prestamo_detail(request, pk):
+    prestamo = get_object_or_404(Prestamo, pk=pk)
+    cuotas = prestamo.cuotas.all().order_by('numero_cuota')
+    return render(request, 'finanzas/prestamo_detail.html', {
+        'prestamo': prestamo,
+        'cuotas': cuotas
+    })

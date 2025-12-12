@@ -3,6 +3,7 @@ from django.db import models
 from django.db.models import Sum
 from django.contrib.auth.models import User
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 import json
 # ==============================================================================
 # 1. MODELOS CENTRALES (MULTITENANCY Y CONFIGURACIÓN)
@@ -16,6 +17,7 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
+
 class Empresa(models.Model):
     nombre = models.CharField(max_length=200, verbose_name="Nombre/Razón Social")
     ruc = models.CharField(max_length=13, unique=True, verbose_name="RUC")
@@ -279,17 +281,12 @@ class Bitacora(models.Model):
     def __str__(self):
         return f"[{self.fecha_hora.strftime('%Y-%m-%d %H:%M')}] {self.usuario.username}: {self.accion[:50]}..."
     
-# Ubicación: Añadir al final de core/models.py
-
 # ==============================================================================
 # 5. MODELOS DE COTIZACIONES / PRESUPUESTOS
 # ==============================================================================
 
 class Cotizacion(models.Model):
-    """
-    Encabezado de la cotización. Contiene la información general, similar a una factura,
-    pero con estados para gestionar su ciclo de vida.
-    """
+    
     ESTADO_CHOICES = [
         ('B', 'Borrador'),      # Creada pero no enviada al cliente
         ('E', 'Enviada'),        # Enviada al cliente, esperando respuesta
@@ -334,7 +331,6 @@ class Cotizacion(models.Model):
         verbose_name_plural = "Cotizaciones"
         ordering = ['-fecha_emision']
 
-
 class CotizacionDetalle(models.Model):
     """
     Líneas de detalle de la cotización. Es casi un espejo de FacturaDetalle.
@@ -349,3 +345,267 @@ class CotizacionDetalle(models.Model):
 
     def __str__(self):
         return f"Detalle de {self.producto.nombre} en cotización {self.cotizacion.id}"
+    
+# ==============================================================================
+# 6. MÓDULO DE FINANZAS: CAJA CHICA Y PRÉSTAMOS
+# ==============================================================================
+
+class CajaChica(models.Model):
+    """
+    Define una caja menor (ej: Caja Administración, Caja Ventas).
+    """
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    responsable = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Custodio")
+    nombre = models.CharField(max_length=100, help_text="Ej: Caja Chica Administración")
+    saldo_actual = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    fecha_apertura = models.DateField(auto_now_add=True)
+    fecha_cierre = models.DateField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.nombre} - Saldo: ${self.saldo_actual}"
+
+class MovimientoCaja(models.Model):
+    """
+    Registra entradas (reposición) y salidas (gastos) de la caja chica.
+    """
+    TIPO_MOVIMIENTO = [
+        ('ING', 'Ingreso / Reposición'),
+        ('EGR', 'Egreso / Gasto'),
+    ]
+
+    caja = models.ForeignKey(CajaChica, on_delete=models.CASCADE, related_name='movimientos')
+    usuario = models.ForeignKey(User, on_delete=models.PROTECT) # Quién registró el movimiento
+    fecha = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(max_length=3, choices=TIPO_MOVIMIENTO)
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    concepto = models.CharField(max_length=255, verbose_name="Descripción del gasto/ingreso")
+    
+    # Comprobante del gasto (Factura física escaneada, recibo, etc.)
+    comprobante = models.FileField(
+        upload_to='comprobantes/caja_chica/%Y/%m/', 
+        null=True, 
+        blank=True,
+        verbose_name="Evidencia/Recibo"
+    )
+
+    def save(self, *args, **kwargs):
+        # Lógica de actualización de saldo de la caja
+        es_nuevo = self.pk is None
+        super().save(*args, **kwargs)
+        
+        if es_nuevo:
+            if self.tipo == 'ING':
+                self.caja.saldo_actual += self.monto
+            else:
+                self.caja.saldo_actual -= self.monto
+            self.caja.save()
+            
+            # Auditoría Automática (Reutilizando tu modelo Bitacora)
+            Bitacora.objects.create(
+                usuario=self.usuario,
+                empresa=self.caja.empresa,
+                accion=f"Movimiento Caja {self.caja.nombre}: {self.tipo} de ${self.monto}. Ref: {self.concepto}"
+            )
+
+    def __str__(self):
+        return f"{self.tipo} - {self.monto} ({self.fecha.strftime('%Y-%m-%d')})"
+
+class Prestamo(models.Model):
+    ESTADO_PRESTAMO = [
+        ('A', 'Activo'),
+        ('P', 'Pagado/Cerrado'),
+        ('M', 'Mora/Vencido'),
+        ('N', 'Anulado')
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    # Se puede ligar a un Cliente existente o usar un nombre genérico
+    beneficiario_cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, help_text="Si el beneficiario es un cliente registrado")
+    beneficiario_nombre = models.CharField(max_length=200, help_text="Nombre del beneficiario si no es cliente")
+    ruc_cedula = models.CharField(max_length=13, verbose_name="RUC/Cédula")
+    plazo_meses = models.PositiveIntegerField(default=12, verbose_name="Plazo (Meses)")
+    fecha_inicio = models.DateField()
+    fecha_vencimiento = models.DateField()
+    
+    monto_capital = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Capital Prestado")
+    tasa_interes_mensual = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Tasa Interés %")
+    
+    observaciones = models.TextField(blank=True, null=True)
+    estado = models.CharField(max_length=1, choices=ESTADO_PRESTAMO, default='A')
+
+    # Campos calculados / de control
+    saldo_capital_pendiente = models.DecimalField(max_digits=12, decimal_places=2)
+    interes_acumulado_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def __str__(self):
+        nombre = self.beneficiario_cliente.nombre if self.beneficiario_cliente else self.beneficiario_nombre
+        return f"Préstamo a {nombre} - ${self.monto_capital}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            # Al crear, el saldo pendiente es igual al monto prestado
+            self.saldo_capital_pendiente = self.monto_capital
+        super().save(*args, **kwargs)
+    def generar_tabla_amortizacion(self):
+        """
+        Calcula y guarda las cuotas usando el Sistema Francés.
+        Formula: R = P * ( i * (1+i)^n ) / ( (1+i)^n - 1 )
+        """
+        # Limpiamos tabla anterior si existe
+        self.cuotas.all().delete()
+        
+        capital = float(self.monto_capital)
+        tasa = float(self.tasa_interes_mensual) / 100
+        plazo = self.plazo_meses
+
+        # Evitar división por cero
+        if tasa > 0:
+            cuota_fija = capital * (tasa * pow(1 + tasa, plazo)) / (pow(1 + tasa, plazo) - 1)
+        else:
+            cuota_fija = capital / plazo
+
+        saldo = capital
+        fecha_pago = self.fecha_inicio
+
+        for i in range(1, plazo + 1):
+            # Calcular componentes
+            interes_cuota = saldo * tasa
+            capital_cuota = cuota_fija - interes_cuota
+            saldo -= capital_cuota
+            
+            # Avanzar un mes para la fecha de pago
+            fecha_pago += relativedelta(months=1)
+
+            # Ajuste final para evitar decimales residuales en la última cuota
+            if i == plazo and saldo != 0:
+                capital_cuota += saldo
+                saldo = 0
+
+            # Guardar en Base de Datos
+            CuotaPrestamo.objects.create(
+                prestamo=self,
+                numero_cuota=i,
+                fecha_vencimiento=fecha_pago,
+                valor_cuota=Decimal(cuota_fija),
+                interes=Decimal(interes_cuota),
+                capital=Decimal(capital_cuota),
+                saldo_pendiente=Decimal(saldo if saldo > 0 else 0)
+            )
+
+class CuotaPrestamo(models.Model):
+    """
+    Representa cada fila de la tabla de amortización.
+    """
+    ESTADO_CUOTA = [
+        ('PEN', 'Pendiente'),
+        ('PAG', 'Pagada'),
+        ('VEN', 'Vencida'),
+    ]
+
+    prestamo = models.ForeignKey(Prestamo, on_delete=models.CASCADE, related_name='cuotas')
+    numero_cuota = models.PositiveIntegerField()
+    fecha_vencimiento = models.DateField()
+    
+    # Valores monetarios
+    valor_cuota = models.DecimalField(max_digits=12, decimal_places=2)
+    capital = models.DecimalField(max_digits=12, decimal_places=2, help_text="Parte que reduce la deuda")
+    interes = models.DecimalField(max_digits=12, decimal_places=2, help_text="Ganancia del banco")
+    saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    estado = models.CharField(max_length=3, choices=ESTADO_CUOTA, default='PEN')
+    fecha_pago_real = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Cuota {self.numero_cuota}/{self.prestamo.plazo_meses} - ${self.valor_cuota}"
+
+class AbonoPrestamo(models.Model):
+    """
+    Registra los pagos que hace el beneficiario para cubrir el préstamo.
+    Permite subir el comprobante de depósito bancario.
+    """
+    prestamo = models.ForeignKey(Prestamo, on_delete=models.CASCADE, related_name='abonos')
+    usuario = models.ForeignKey(User, on_delete=models.PROTECT) # Quien registra el cobro
+    fecha_pago = models.DateTimeField(auto_now_add=True)
+    
+    # Distribución del pago
+    monto_capital = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cuánto de este pago va a reducir la deuda original")
+    monto_interes = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cuánto de este pago es ganancia por intereses")
+    
+    codigo_deposito = models.CharField(max_length=50, blank=True, null=True, verbose_name="# Referencia Bancaria")
+    
+    # Aquí se sube la foto del voucher o comprobante
+    comprobante_deposito = models.FileField(
+        upload_to='comprobantes/prestamos/%Y/%m/', 
+        verbose_name="Comprobante de Depósito",
+        null=True, 
+        blank=True
+    )
+
+    @property
+    def total_pagado(self):
+        return self.monto_capital + self.monto_interes
+
+    def save(self, *args, **kwargs):
+        # Lógica para descontar la deuda del préstamo
+        es_nuevo = self.pk is None
+        super().save(*args, **kwargs)
+
+        if es_nuevo:
+            # Actualizamos los saldos del préstamo padre
+            self.prestamo.saldo_capital_pendiente -= self.monto_capital
+            # El interés pendiente podría manejarse aquí si tuvieras una lógica de devengo diario,
+            # pero por ahora simplemente registramos que se pagó interés.
+            
+            # Verificamos si se terminó de pagar
+            if self.prestamo.saldo_capital_pendiente <= 0:
+                self.prestamo.saldo_capital_pendiente = 0
+                self.prestamo.estado = 'P' # Pagado
+            
+            self.prestamo.save()
+
+            # Auditoría Automática
+            Bitacora.objects.create(
+                usuario=self.usuario,
+                empresa=self.prestamo.empresa,
+                accion=f"Abono Préstamo #{self.prestamo.id}: Capital ${self.monto_capital} + Interés ${self.monto_interes}. Ref: {self.codigo_deposito}"
+            )
+
+    def __str__(self):
+        return f"Abono ${self.total_pagado} ({self.fecha_pago.strftime('%Y-%m-%d')})"
+    
+class CuentaBancaria(models.Model):
+    TIPO_CUENTA = [
+        ('AH', 'Ahorros'),
+        ('CTE', 'Corriente'),
+        ('INV', 'Inversión / Plazo Fijo'),
+    ]
+    
+    # Relación: Un cliente puede tener MUCHAS cuentas
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='cuentas_bancarias')
+    numero_cuenta = models.CharField(max_length=20, unique=True)
+    tipo = models.CharField(max_length=3, choices=TIPO_CUENTA, default='AH')
+    saldo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    fecha_apertura = models.DateField(auto_now_add=True)
+    activa = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.numero_cuenta} ({self.cliente.nombre})"
+
+# Y necesitas registrar las transacciones de esas cuentas
+class TransaccionBancaria(models.Model):
+    cuenta = models.ForeignKey(CuentaBancaria, on_delete=models.CASCADE, related_name='transacciones')
+    fecha = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(max_length=3, choices=[('DEP', 'Depósito'), ('RET', 'Retiro')])
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    descripcion = models.CharField(max_length=200)
+    
+    def save(self, *args, **kwargs):
+        # Actualizar saldo automáticamente
+        if not self.pk:
+            if self.tipo == 'DEP':
+                self.cuenta.saldo += self.monto
+            elif self.tipo == 'RET':
+                self.cuenta.saldo -= self.monto
+            self.cuenta.save()
+        super().save(*args, **kwargs)

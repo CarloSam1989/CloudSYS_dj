@@ -63,5 +63,27 @@ urlpatterns = [
     path('configuracion/empresa/', views.configuracion_empresa, name='config_empresa'),
     path('ajax/cambiar-estado-cotizacion/', views.cambiar_estado_cotizacion_ajax, name='ajax_cambiar_estado_cotizacion'),
     path('cotizaciones/<int:cotizacion_id>/pdf/', views.generar_cotizacion_pdf, name='cotizacion_pdf'),
-
+    # ==========================================
+    # RUTAS DE FINANZAS: CAJA CHICA
+    # ==========================================
+    path('finanzas/cajas/', views.caja_chica_list, name='caja_list'),
+    path('finanzas/cajas/<int:pk>/', views.caja_chica_detail, name='caja_detail'),
+    path('finanzas/cajas/<int:pk>/movimiento/', views.registrar_movimiento_caja, name='caja_movimiento'),
+    # ==========================================
+    # RUTAS DE FINANZAS: PRÉSTAMOS
+    # ==========================================
+    # 1. Listado general de préstamos
+    path('finanzas/prestamos/', views.prestamo_list, name='prestamo_list'),
+    
+    # 2. Crear un nuevo préstamo
+    path('finanzas/prestamos/nuevo/', views.prestamo_create, name='prestamo_create'),
+    
+    # 3. Ver detalle del préstamo (Aquí se muestra la Tabla de Amortización)
+    path('finanzas/prestamos/<int:pk>/', views.prestamo_detail, name='prestamo_detail'),
+    
+    # 4. Acción para (Re)calcular la Tabla de Amortización (Sistema Francés)
+    path('finanzas/prestamos/<int:pk>/calcular/', views.generar_tabla_view, name='prestamo_generar_tabla'),
+    
+    # 5. Registrar un pago/abono de cuota
+    path('finanzas/prestamos/<int:pk>/abonar/', views.registrar_abono_prestamo, name='prestamo_abono'),
 ]

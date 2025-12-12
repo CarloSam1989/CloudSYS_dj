@@ -49,7 +49,6 @@ MIDDLEWARE = [
 
 # 4. CONFIGURACIÓN DEL PROYECTO (URLs, WSGI)
 # ==============================================================================
-# Asegúrate de que 'CloudSYS' es el nombre correcto de tu carpeta de proyecto
 ROOT_URLCONF = 'erp_project.urls'
 WSGI_APPLICATION = 'erp_project.wsgi.application'
 
@@ -110,7 +109,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-
 # 10. CONFIGURACIÓN DE CELERY
 # ==============================================================================
 CELERY_BROKER_URL = env('REDIS_URL')
@@ -120,6 +118,8 @@ CELERY_RESULT_BACKEND = env('REDIS_URL')
 if not CELERY_BROKER_URL:
     print("ADVERTENCIA: Celery no está configurado. Las tareas asíncronas fallarán.")
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # 11. CONFIGURACIÓN DE CORREO (EJEMPLO)
 # ==============================================================================

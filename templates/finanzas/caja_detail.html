@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'core:caja_list' %}">Cajas</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ caja.nombre }}</li>
+                </ol>
+            </nav>
+            <h1 class="display-5">${{ caja.saldo_actual }}</h1>
+            <span class="badge bg-success">Activa</span>
+            <span class="text-muted ms-2">Custodio: {{ caja.responsable.get_full_name }}</span>
+        </div>
+        <div class="col-md-4 text-end align-self-center">
+            <a href="{% url 'core:caja_movimiento' caja.id %}" class="btn btn-success btn-lg shadow">
+                <i class="bi bi-plus-circle"></i> Registrar Movimiento
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-white py-3">
+            <h5 class="m-0 font-weight-bold text-primary">Historial de Transacciones</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Usuario</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-center">Evidencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in caja.movimientos.all|dictsortreversed:"fecha" %}
+                        <tr>
+                            <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if mov.tipo == 'ING' %}
+                                    <span class="badge bg-success">INGRESO</span>
+                                {% else %}
+                                    <span class="badge bg-danger">EGRESO</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mov.concepto }}</td>
+                            <td class="small">{{ mov.usuario.username }}</td>
+                            <td class="text-end fw-bold {% if mov.tipo == 'EGR' %}text-danger{% else %}text-success{% endif %}">
+                                {% if mov.tipo == 'EGR' %}-{% endif %}${{ mov.monto }}
+                            </td>
+                            <td class="text-center">
+                                {% if mov.comprobante %}
+                                    <a href="{{ mov.comprobante.url }}" target="_blank" class="btn btn-sm btn-info text-white" title="Ver Comprobante">
+                                        📄 Ver
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                No hay movimientos registrados en esta caja.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
