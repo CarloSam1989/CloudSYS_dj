@@ -248,15 +248,6 @@ class PagoFactura(models.Model):
     metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
     observacion = models.TextField(blank=True, null=True)
 
-class FacturaDetalle(models.Model):
-    factura = models.ForeignKey('Factura', related_name='detalles', on_delete=models.CASCADE)
-    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
-    cantidad = models.DecimalField(max_digits=12, decimal_places=4)
-    precio_unitario = models.DecimalField(max_digits=12, decimal_places=4)
-    descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    precio_total_sin_impuesto = models.DecimalField(max_digits=12, decimal_places=2)
-    impuestos = models.JSONField()
-
 # ==============================================================================
 # 4. MODELOS DE INVENTARIO, PROMOCIONES Y AUDITORÍA
 # ==============================================================================
