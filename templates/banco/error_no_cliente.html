@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="card shadow-lg border-danger">
+                <div class="card-body p-5">
+                    <h1 class="display-1 text-danger mb-3">
+                        <i class="bi bi-person-x-fill"></i>
+                    </h1>
+                    <h2 class="card-title text-danger">Perfil No Encontrado</h2>
+                    <p class="card-text lead mt-3">
+                        {{ mensaje|default:"Tu usuario no tiene un perfil de Cliente Bancario asociado." }}
+                    </p>
+                    <hr>
+                    <p class="text-muted">
+                        Por favor, comunícate con un Oficial de Negocios del banco para que active tu banca en línea.
+                    </p>
+                    
+                    <a href="/" class="btn btn-outline-secondary mt-3">Volver al Inicio</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
