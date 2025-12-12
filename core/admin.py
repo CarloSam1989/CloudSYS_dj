@@ -97,10 +97,6 @@ class FacturaAdmin(admin.ModelAdmin):
 # ==============================================================================
 admin.site.register(Bitacora)
 admin.site.register(MovimientoInventario)
-# Registro básico
-admin.site.register(Empresa)
-
-
 # Registro avanzado para Cuentas
 @admin.register(CuentaBancaria)
 class CuentaBancariaAdmin(admin.ModelAdmin):
