@@ -95,7 +95,7 @@ def dashboard_view(request):
     # --- 1. FILTRO DE BANQUITO (PRIORIDAD ALTA) ---
     # Si el usuario es un Cliente del Banco, lo sacamos de aquí inmediatamente.
     if hasattr(request.user, 'perfil_cliente') and request.user.perfil_cliente is not None:
-        return redirect('core:home_banking')
+        return redirect('home_banking')
 
     # --- 2. LÓGICA ERP (TU CÓDIGO MEJORADO) ---
     try:
