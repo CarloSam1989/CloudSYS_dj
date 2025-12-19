@@ -55,7 +55,10 @@ urlpatterns = [
     path('facturacion-electronica/xml/<int:factura_id>/', views.descargar_xml_view, name='descargar_xml'),
     path('ajax/buscar-proveedores/', views.buscar_proveedores_ajax, name='buscar_proveedores_ajax'),
     path('ajax/agregar-proveedor/', views.agregar_proveedor_ajax, name='agregar_proveedor_ajax'),
-    path('cotizaciones/', views.lista_cotizaciones, name='cotizaciones'),
+    path('cotizaciones/', views.cotizaciones, name='cotizaciones'),
+    path('busqueda/productos-venta/', views.buscar_productos_venta_ajax, name='buscar_productos_venta_ajax'),
+    path('busqueda/clientes/', views.buscar_clientes_ajax, name='buscar_clientes_ajax'),
+    path('clientes/agregar-ajax/', views.agregar_cliente_ajax, name='agregar_cliente_ajax'), # Si usas el modal de crear cliente
     path('cotizaciones/crear/', views.crear_cotizacion, name='cotizacion_crear'),
     path('cotizaciones/<int:cotizacion_id>/', views.detalle_cotizacion, name='cotizacion_detalle'),
     path('ajax/convertir-cotizacion/', views.convertir_cotizacion_a_factura_ajax, name='ajax_convertir_cotizacion'),
@@ -86,5 +89,4 @@ urlpatterns = [
     # 5. Registrar un pago/abono de cuota
     path('finanzas/prestamos/<int:pk>/abonar/', views.registrar_abono_prestamo, name='prestamo_abono'),
     path('mi-banco/', views.home_banking_view, name='home_banking'),
-    path('busqueda/productos-venta/', views.buscar_productos_venta_ajax, name='buscar_productos_venta_ajax'),
 ]

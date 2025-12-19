@@ -1244,17 +1244,85 @@ def convertir_cotizacion_a_factura_ajax(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'Error inesperado: {e}'})
 
-@login_required
-def lista_cotizaciones(request):
+def cotizaciones(request):
+    """Vista principal de Cotizaciones (Lista + Formulario de Creación)"""
+    if request.method == 'POST':
+        form = CotizacionForm(request.POST)
+        formset = DetalleCotizacionFormSet(request.POST)
+        
+        if form.is_valid() and formset.is_valid():
+            try:
+                with transaction.atomic():
+                    cotizacion = form.save(commit=False)
+                    # Calculamos total temporal (se puede recalcular despues)
+                    cotizacion.total = 0 
+                    cotizacion.save()
+                    
+                    total = 0
+                    detalles = formset.save(commit=False)
+                    for detalle in detalles:
+                        detalle.cotizacion = cotizacion
+                        detalle.subtotal = detalle.cantidad * detalle.precio_unitario
+                        total += detalle.subtotal
+                        detalle.save()
+                    
+                    # Actualizar total cabecera
+                    cotizacion.total = total
+                    cotizacion.save()
+                    
+                    messages.success(request, 'Cotización guardada correctamente.')
+                    return redirect('cotizaciones')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {e}')
+        else:
+            messages.error(request, 'Error en el formulario. Revise los datos.')
+    else:
+        form = CotizacionForm()
+        formset = DetalleCotizacionFormSet()
+
+    # Listado para la tabla inferior
+    cotizaciones_list = Cotizacion.objects.all().order_by('-fecha_emision')
+
+    return render(request, 'core/cotizaciones.html', {
+        'cotizacion_form': form,
+        'detalle_formset': formset,
+        'cotizaciones': cotizaciones_list
+    })
+
+def buscar_productos_venta_ajax(request):
     """
-    Muestra una lista de todas las cotizaciones de la empresa del usuario.
+    AJAX: Busca productos y retorna PRECIO DE VENTA (no costo).
     """
-    empresa = request.user.perfil.empresa
-    cotizaciones = Cotizacion.objects.filter(empresa=empresa).order_by('-fecha_emision', '-id')
-    context = {
-        'cotizaciones': cotizaciones
-    }
-    return render(request, 'cotizacion_lista.html', context)
+    query = request.GET.get('q', '')
+    data = []
+    
+    if query:
+        # Filtra por nombre o código
+        qs = Producto.objects.filter(
+            Q(nombre__icontains=query) | Q(codigo__icontains=query)
+        ).values('id', 'codigo', 'nombre', 'precio', 'stock')[:20]
+
+        for p in qs:
+            data.append({
+                'id': p['id'],
+                'text': f"{p['codigo']} - {p['nombre']} (Stock: {p['stock']})",
+                'precio': float(p['precio']), # Retornamos PVP
+                'stock': p['stock']
+            })
+    
+    return JsonResponse({'results': data})
+
+def buscar_clientes_ajax(request):
+    """AJAX: Busca clientes para el Select2"""
+    query = request.GET.get('q', '')
+    data = []
+    if query:
+        qs = Cliente.objects.filter(
+            Q(nombre__icontains=query) | Q(dni__icontains=query)
+        ).values('id', 'nombre', 'dni')[:20]
+        for c in qs:
+            data.append({'id': c['id'], 'text': f"{c['nombre']} ({c['dni']})"})
+    return JsonResponse({'results': data})
 
 @login_required
 def detalle_cotizacion(request, cotizacion_id):

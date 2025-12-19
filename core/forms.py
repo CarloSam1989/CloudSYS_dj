@@ -199,49 +199,34 @@ CompraDetalleFormSet = formset_factory(CompraDetalleForm, extra=1)
 # ==========================================
 # 4. COTIZACIONES
 # ==========================================
-
 class CotizacionForm(forms.ModelForm):
-    cliente = forms.ModelChoiceField(
-        queryset=Cliente.objects.none(),
-        widget=forms.Select(attrs={'class': 'form-control select2'})
-    )
-
     class Meta:
         model = Cotizacion
-        fields = ['cliente', 'fecha_vencimiento', 'terminos_y_condiciones']
+        fields = ['cliente', 'fecha_vencimiento'] 
+        # 'total' y 'fecha_emision' suelen ser automáticos
         widgets = {
-            'fecha_vencimiento': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'terminos_y_condiciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'cliente': forms.Select(attrs={'class': 'form-select form-select-sm'}),
+            'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control form-control-sm', 'type': 'date'}),
         }
 
-    def __init__(self, *args, **kwargs):
-        empresa = kwargs.pop('empresa', None)
-        super().__init__(*args, **kwargs)
-        if empresa:
-            self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa)
-
-class CotizacionDetalleForm(forms.ModelForm):
-    producto = forms.ModelChoiceField(
-        queryset=Producto.objects.all(),
-        widget=forms.HiddenInput()
-    )
+class DetalleCotizacionForm(forms.ModelForm):
     class Meta:
         model = CotizacionDetalle
-        fields = ['producto', 'cantidad', 'precio_unitario', 'descuento']
+        fields = ['producto', 'cantidad', 'precio_unitario']
         widgets = {
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control cantidad', 'step': '0.01'}),
-            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control precio-unitario', 'step': '0.01'}),
-            'descuento': forms.NumberInput(attrs={'class': 'form-control descuento', 'step': '0.01'}),
+            'producto': forms.Select(attrs={'class': 'form-select form-select-sm'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control form-control-sm text-center', 'min': '1'}),
+            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control form-control-sm text-end', 'step': '0.01'}),
         }
 
-CotizacionDetalleFormSet = modelformset_factory(
-    CotizacionDetalle,
-    form=CotizacionDetalleForm,
-    extra=0,
-    can_delete=True,
-    can_delete_extra=True
+# Factory para el detalle
+DetalleCotizacionFormSet = inlineformset_factory(
+    Cotizacion, 
+    CotizacionDetalle, 
+    form=DetalleCotizacionForm,
+    extra=1,  # Empieza con 1 fila vacía
+    can_delete=True
 )
-
 # ==========================================
 # 5. VENTAS / FACTURACIÓN (NUEVO CÓDIGO)
 # ==========================================

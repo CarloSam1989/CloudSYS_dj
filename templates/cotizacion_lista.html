@@ -1,27 +1,30 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Cotizaciones{% endblock %}
+{% block title %}Gestión de Cotizaciones{% endblock %}
 
 {% block content %}
 <main>
     <div class="container-fluid px-4">
         
         <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
-            <h1 class="h3 mb-0 text-gray-800">Cotizaciones</h1>
+            <div>
+                <h1 class="h3 mb-0 text-gray-800">Cotizaciones</h1>
+                <p class="text-muted small mb-0">Gestión de presupuestos y preventa</p>
+            </div>
             <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
                 <li class="breadcrumb-item active">Cotizaciones</li>
             </ol>
         </div>
 
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <span class="fw-bold"><i class="fas fa-file-signature me-1"></i> Nueva Cotización</span>
-                <div>
-                    <span class="badge bg-dark me-2" id="total-header" style="font-size: 0.9rem;">Total: $0.00</span>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForm">
-                        <i class="fas fa-minus"></i>
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-primary"><i class="fas fa-file-signature me-1"></i> Nueva Cotización</span>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-dark me-3" id="total-header" style="font-size: 0.95rem;">Total: $0.00</span>
+                    <button class="btn btn-sm btn-link text-secondary text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForm">
+                        <i class="fas fa-minus"></i> Ocultar
                     </button>
                 </div>
             </div>
@@ -33,32 +36,32 @@
                         
                         <div class="row g-3 mb-4">
                             <div class="col-md-5">
-                                <label class="form-label small fw-bold text-secondary">CLIENTE</label>
+                                <label class="form-label small fw-bold text-uppercase text-secondary">Cliente</label>
                                 <div class="input-group input-group-sm">
                                     {{ cotizacion_form.cliente }}
                                     <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#modalCliente">
-                                        <i class="fas fa-plus"></i>
+                                        <i class="fas fa-user-plus"></i>
                                     </button>
                                 </div>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-secondary">VALIDEZ</label>
+                                <label class="form-label small fw-bold text-uppercase text-secondary">Vence El</label>
                                 {{ cotizacion_form.fecha_vencimiento }}
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-secondary">NOTAS</label>
-                                <input type="text" name="notas" class="form-control form-control-sm" placeholder="Condiciones de pago, entrega...">
+                                <label class="form-label small fw-bold text-uppercase text-secondary">Notas / Condiciones</label>
+                                <input type="text" name="notas" class="form-control form-control-sm" placeholder="Ej: Validez 15 días, pago contado...">
                             </div>
                         </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover align-middle">
-                                <thead class="table-light">
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-hover align-middle border-bottom">
+                                <thead class="table-light text-secondary">
                                     <tr>
-                                        <th style="width: 40%;">Producto</th>
+                                        <th style="width: 40%;">Producto / Servicio</th>
                                         <th style="width: 10%;" class="text-center">Cant.</th>
-                                        <th style="width: 15%;" class="text-end">Precio ($)</th>
-                                        <th style="width: 15%;" class="text-end">Total ($)</th>
+                                        <th style="width: 15%;" class="text-end">Precio Unit. ($)</th>
+                                        <th style="width: 15%;" class="text-end">Subtotal ($)</th>
                                         <th style="width: 5%;"></th>
                                     </tr>
                                 </thead>
@@ -70,7 +73,9 @@
                                         <td class="p-1">{{ form.producto }}</td>
                                         <td class="p-1">{{ form.cantidad }}</td>
                                         <td class="p-1">{{ form.precio_unitario }}</td>
-                                        <td class="p-1"><input type="text" class="form-control form-control-sm text-end fw-bold subtotal-input" readonly value="0.00" style="background-color: #f8f9fa;"></td>
+                                        <td class="p-1">
+                                            <input type="text" class="form-control form-control-sm text-end fw-bold subtotal-input bg-light" readonly value="0.00">
+                                        </td>
                                         <td class="p-1 text-center">
                                             <button type="button" class="btn btn-link text-danger btn-sm delete-row p-0"><i class="fas fa-times"></i></button>
                                             <div class="d-none">{{ form.DELETE }}</div>
@@ -81,28 +86,26 @@
                             </table>
                         </div>
                         
-                        <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <button type="button" id="add-row" class="btn btn-light btn-sm border text-primary fw-bold">
                                 <i class="fas fa-plus-circle me-1"></i> Agregar Producto
                             </button>
-                        </div>
 
-                        <hr class="my-3">
-
-                        <div class="d-flex justify-content-end gap-2">
-                            <button type="reset" class="btn btn-outline-secondary btn-sm px-3">Limpiar</button>
-                            <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold">
-                                <i class="fas fa-save me-1"></i> Guardar Cotización
-                            </button>
+                            <div class="text-end">
+                                <button type="reset" class="btn btn-outline-secondary btn-sm px-3 me-2">Limpiar</button>
+                                <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold shadow-sm">
+                                    <i class="fas fa-save me-1"></i> Guardar Cotización
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
 
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-light">
-                <i class="fas fa-list me-1"></i> Historial
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <i class="fas fa-list-alt me-1 text-secondary"></i> Historial Reciente
             </div>
             <div class="card-body">
                 <table id="datatablesSimple" class="table table-striped table-hover table-sm">
@@ -110,7 +113,8 @@
                         <tr>
                             <th>Folio</th>
                             <th>Cliente</th>
-                            <th>Fecha</th>
+                            <th>Emisión</th>
+                            <th>Vencimiento</th>
                             <th>Total</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -122,10 +126,25 @@
                             <td>{{ c.id|stringformat:"05d" }}</td>
                             <td>{{ c.cliente.nombre }}</td>
                             <td>{{ c.fecha_emision|date:"d/m/Y" }}</td>
-                            <td>${{ c.total|floatformat:2 }}</td>
-                            <td><span class="badge bg-secondary">{{ c.estado }}</span></td>
+                            <td>{{ c.fecha_vencimiento|date:"d/m/Y" }}</td>
+                            <td class="fw-bold text-dark">${{ c.total|floatformat:2 }}</td>
                             <td>
-                                <a href="#" class="btn btn-outline-dark btn-sm border-0 py-0"><i class="fas fa-print"></i></a>
+                                {% if c.estado == 'pendiente' %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif c.estado == 'aprobada' %}
+                                    <span class="badge bg-success">Aprobada</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Vencida/Canc.</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="#" class="btn btn-outline-secondary btn-sm border-0" title="Imprimir"><i class="fas fa-print"></i></a>
+                                    {% if c.estado == 'pendiente' %}
+                                    <a href="#" class="btn btn-outline-success btn-sm border-0" title="Facturar"><i class="fas fa-check-circle"></i></a>
+                                    {% endif %}
+                                    <a href="#" class="btn btn-outline-danger btn-sm border-0" title="Eliminar"><i class="fas fa-trash"></i></a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -136,13 +155,36 @@
     </div>
 </main>
 
+<div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formClienteAjax" action="{% url 'agregar_cliente_ajax' %}" class="modal-content">
+            <div class="modal-header bg-light py-2"><h6 class="modal-title fw-bold">Nuevo Cliente</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label class="small fw-bold">Nombre Completo</label><input type="text" name="nombre" class="form-control form-control-sm" required></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="small fw-bold">Cédula / RUC</label>
+                        <input type="text" name="dni" id="inputDniCliente" class="form-control form-control-sm">
+                        <div id="feedback-dni" style="font-size:0.75rem; margin-top:2px;"></div>
+                    </div>
+                    <div class="col-6"><label class="small fw-bold">Teléfono</label><input type="text" name="telefono" class="form-control form-control-sm"></div>
+                </div>
+                <div class="mb-2"><label class="small fw-bold">Dirección</label><input type="text" name="direccion" class="form-control form-control-sm"></div>
+            </div>
+            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar Cliente</button></div>
+        </form>
+    </div>
+</div>
+
 <table style="display: none;">
     <tbody id="empty-form-template">
         <tr class="detalle-form">
             <td class="p-1">{{ detalle_formset.empty_form.producto }}</td>
             <td class="p-1">{{ detalle_formset.empty_form.cantidad }}</td>
             <td class="p-1">{{ detalle_formset.empty_form.precio_unitario }}</td>
-            <td class="p-1"><input type="text" class="form-control form-control-sm text-end fw-bold subtotal-input" readonly value="0.00" style="background-color: #f8f9fa;"></td>
+            <td class="p-1">
+                <input type="text" class="form-control form-control-sm text-end fw-bold subtotal-input bg-light" readonly value="0.00">
+            </td>
             <td class="p-1 text-center">
                 <button type="button" class="btn btn-link text-danger btn-sm delete-row p-0"><i class="fas fa-times"></i></button>
                 <div class="d-none">{{ detalle_formset.empty_form.DELETE }}</div>
@@ -150,55 +192,34 @@
         </tr>
     </tbody>
 </table>
-
 {% endblock %}
 
 {% block javascript %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const urlBuscarProductos = "{% url 'buscar_productos_venta_ajax' %}";
     
-    // ==========================================
-    // 1. SOLUCIÓN BUG "DOBLE FILA"
-    // ==========================================
-    const addBtn = document.getElementById('add-row');
-    const formsetContainer = document.getElementById('detalle-formset');
-    const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
-    const emptyFormTemplate = document.getElementById('empty-form-template');
+    // URLS AJAX
+    const urlBuscarProductos = "{% url 'buscar_productos_venta_ajax' %}";
+    const urlBuscarClientes = "{% url 'buscar_clientes_ajax' %}";
 
-    // Removemos cualquier listener previo por seguridad (buena práctica)
-    const newAddBtn = addBtn.cloneNode(true);
-    addBtn.parentNode.replaceChild(newAddBtn, addBtn);
-
-    newAddBtn.addEventListener('click', function(e) {
-        e.preventDefault(); // Evita cualquier comportamiento nativo o submit accidental
-        e.stopPropagation(); // Evita que el click "suba" al formulario
-
-        // 1. Obtener índice actual
-        let formIdx = parseInt(totalFormsInput.value);
-        
-        // 2. Clonar el template y reemplazar __prefix__
-        // Usamos innerHTML para obtener el texto y reemplazar
-        let newRowHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formIdx);
-        
-        // 3. Insertar SOLO UNA VEZ
-        formsetContainer.insertAdjacentHTML('beforeend', newRowHtml);
-
-        // 4. Actualizar contador
-        totalFormsInput.value = formIdx + 1;
-
-        // 5. Inicializar Select2 en la nueva fila
-        const newRow = formsetContainer.lastElementChild; // Obtenemos el elemento DOM real
-        const select = newRow.querySelector('select');
-        if(select) initProductSelect(select);
+    // ==================================================
+    // 1. SELECT2 CLIENTES
+    // ==================================================
+    $('#{{ cotizacion_form.cliente.id_for_label }}').select2({
+        theme: "bootstrap-5", width: '100%', placeholder: 'Buscar cliente...',
+        ajax: {
+            url: urlBuscarClientes, dataType: 'json', delay: 250,
+            data: params => ({ q: params.term }),
+            processResults: data => ({ results: data.results })
+        }
     });
 
-    // ==========================================
-    // 2. LÓGICA DE PRODUCTOS Y CÁLCULOS
-    // ==========================================
+    // ==================================================
+    // 2. LÓGICA DE PRODUCTOS (BUSCADOR + PRECIOS)
+    // ==================================================
     function initProductSelect(element) {
         $(element).select2({
-            theme: "bootstrap-5", width: '100%', placeholder: 'Buscar...',
+            theme: "bootstrap-5", width: '100%', placeholder: 'Buscar producto...',
             ajax: {
                 url: urlBuscarProductos, dataType: 'json', delay: 250,
                 data: params => ({ q: params.term }),
@@ -207,20 +228,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }).on('select2:select', function(e) {
             const data = e.params.data;
             const row = this.closest('tr');
+            // Cargar PRECIO DE VENTA
             if(data.precio) row.querySelector('input[name$="precio_unitario"]').value = data.precio;
+            // Poner cantidad 1 por defecto
             row.querySelector('input[name$="cantidad"]').value = 1;
             calculateRow(row);
         });
     }
 
-    // Inicializar filas existentes
-    $('#detalle-formset select').each(function() { initProductSelect(this); });
+    // Inicializar filas existentes al cargar
+    $('.detalle-form select').each(function() { initProductSelect(this); });
 
-    // Cálculos
+    // ==================================================
+    // 3. CÁLCULOS MATEMÁTICOS
+    // ==================================================
     function calculateRow(row) {
         const cant = parseFloat(row.querySelector('input[name$="cantidad"]').value) || 0;
         const precio = parseFloat(row.querySelector('input[name$="precio_unitario"]').value) || 0;
-        row.querySelector('.subtotal-input').value = (cant * precio).toFixed(2);
+        const subtotal = cant * precio;
+        row.querySelector('.subtotal-input').value = subtotal.toFixed(2);
         updateTotal();
     }
 
@@ -234,11 +260,38 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('total-header').textContent = 'Total: $' + total.toFixed(2);
     }
 
-    // Eventos delegados para inputs (cálculo en tiempo real)
-    formsetContainer.addEventListener('input', function(e) {
+    // Event Delegation para cálculos en tiempo real
+    document.getElementById('detalle-formset').addEventListener('input', function(e) {
         if(e.target.matches('input[name$="cantidad"], input[name$="precio_unitario"]')) {
             calculateRow(e.target.closest('tr'));
         }
+    });
+
+    // ==================================================
+    // 4. AGREGAR FILAS (BUG CORREGIDO)
+    // ==================================================
+    const addBtn = document.getElementById('add-row');
+    const formsetContainer = document.getElementById('detalle-formset');
+    const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+    const emptyFormTemplate = document.getElementById('empty-form-template');
+
+    // Clonamos el botón para eliminar listeners fantasmas previos
+    const newAddBtn = addBtn.cloneNode(true);
+    addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+
+    newAddBtn.addEventListener('click', function(e) {
+        e.preventDefault(); 
+        e.stopPropagation();
+
+        let formIdx = parseInt(totalFormsInput.value);
+        let newRowHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formIdx);
+        
+        formsetContainer.insertAdjacentHTML('beforeend', newRowHtml);
+        totalFormsInput.value = formIdx + 1;
+
+        // Inicializar Select2 en la nueva fila
+        const newRow = formsetContainer.lastElementChild;
+        initProductSelect(newRow.querySelector('select'));
     });
 
     // Eliminar fila
@@ -250,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if(delInput) { 
                 delInput.checked = true; 
                 row.style.display = 'none'; 
-                row.querySelector('.subtotal-input').value = 0; // Para que el total se recalcule bien
+                row.querySelector('.subtotal-input').value = 0; 
             } else { 
                 row.remove(); 
             }
@@ -258,10 +311,58 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Inicializar Select2 Cliente
-    $('#{{ cotizacion_form.cliente.id_for_label }}').select2({
-        theme: "bootstrap-5", width: '100%', placeholder: 'Buscar cliente...'
-        // ... (tu configuración ajax de clientes)
+    // ==================================================
+    // 5. VALIDACIÓN CÉDULA ECUADOR (EN MODAL)
+    // ==================================================
+    function validarIdentificacionEcuador(id) {
+        id = id.trim();
+        if (id.length !== 10 || isNaN(id)) {
+            return (id.length >= 5) ? { valido: true, msg: "Pasaporte", color: 'text-success' } : { valido: false, msg: "Muy corto", color: 'text-danger' };
+        }
+        // Algoritmo Cédula
+        let total = 0;
+        const coef = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+        for (let i = 0; i < 9; i++) {
+            let v = parseInt(id.charAt(i)) * coef[i];
+            total += (v >= 10) ? (v - 9) : v;
+        }
+        let res = (Math.ceil(total / 10) * 10) - total;
+        if (res === 10) res = 0;
+        
+        return (res === parseInt(id.charAt(9))) 
+            ? { valido: true, msg: "Cédula Válida", color: 'text-success' } 
+            : { valido: false, msg: "Cédula Inválida", color: 'text-danger' };
+    }
+
+    const inputDni = document.getElementById('inputDniCliente');
+    const feedbackDni = document.getElementById('feedback-dni');
+    
+    if(inputDni) {
+        inputDni.addEventListener('blur', function() {
+            if(this.value.length > 0) {
+                const check = validarIdentificacionEcuador(this.value);
+                feedbackDni.textContent = check.msg;
+                feedbackDni.className = check.color + " fw-bold";
+                this.className = `form-control form-control-sm ${check.valido ? 'is-valid' : 'is-invalid'}`;
+            }
+        });
+    }
+
+    // Guardar Cliente por AJAX
+    const formCliente = document.getElementById('formClienteAjax');
+    formCliente.addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch(formCliente.action, {
+            method: 'POST', body: new FormData(formCliente), headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(r => r.json()).then(data => {
+            if(data.status === 'success') {
+                const newOption = new Option(data.nombre, data.id, true, true);
+                $('#{{ cotizacion_form.cliente.id_for_label }}').append(newOption).trigger('change');
+                bootstrap.Modal.getInstance(document.getElementById('modalCliente')).hide();
+                formCliente.reset();
+                feedbackDni.textContent = ''; inputDni.classList.remove('is-valid', 'is-invalid');
+            }
+        });
     });
 });
 </script>
