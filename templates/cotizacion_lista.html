@@ -4,6 +4,32 @@
 {% block title %}Gestión de Cotizaciones{% endblock %}
 
 {% block content %}
+<style>
+    /* CORRECCIÓN VISUAL: Select2 dentro de Input Group */
+    
+    /* 1. Obligar al contenedor de Select2 a ajustarse al espacio disponible (flex) */
+    .input-group > .select2-container--bootstrap-5 {
+        flex: 1 1 auto !important;
+        width: 1% !important; /* Truco vital: obliga al navegador a recalcular el ancho basado en flex */
+        position: relative;
+    }
+
+    /* 2. Alinear verticalmente y quitar bordes redondeados derechos para unirlo al botón */
+    .input-group > .select2-container--bootstrap-5 .select2-selection {
+        height: 100% !important;
+        display: flex !important;
+        align-items: center;
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+    }
+
+    /* 3. Asegurar que el botón "encaje" bien */
+    .input-group .btn-add-ajax {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        z-index: 2; /* Para que el borde del botón quede sobre el del select */
+    }
+</style>
 <main>
     <div class="container-fluid px-4">
         

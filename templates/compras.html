@@ -25,6 +25,18 @@
     .input-group .btn {
         z-index: 2; /* Que quede por encima del borde del select */
     }
+    /* SOLUCIÓN MODAL: Forzar capas superiores */
+    .modal-backdrop {
+        z-index: 1050 !important; /* Fondo oscuro */
+    }
+    .modal {
+        z-index: 1060 !important; /* Ventana del modal (debe ser mayor al backdrop) */
+    }
+    
+    /* Si el Select2 ESTÁ DENTRO del modal y no se ve, usa esto también: */
+    .select2-container--open {
+        z-index: 999999 !important;
+    }
 </style>
 
 <main>
@@ -148,7 +160,7 @@
 <div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form id="formProveedor" action="{% url 'agregar_proveedor_ajax' %}" class="modal-content">
-            <div class="modal-header bg-light text-white py-2"><h5 class="modal-title h6">Nuevo Proveedor</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header bg-light py-2"><h5 class="modal-title h6">Nuevo Proveedor</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="mb-2"><label class="small fw-bold">Razón Social</label><input type="text" name="nombre" class="form-control form-control-sm" required></div>
                 <div class="row g-2 mb-2">
