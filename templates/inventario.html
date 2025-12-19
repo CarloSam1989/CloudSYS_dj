@@ -5,6 +5,14 @@
 
 {% block content %}
 <style>
+    .swal2-container {
+        z-index: 20000 !important;
+    }
+
+    /* Opcional: Asegurar que el Select2 abierto no se pase de listo */
+    .select2-container--open {
+        z-index: 9999 !important; /* Alto, pero menor que SweetAlert */
+    }
     /* CORRECCIÓN VISUAL: Select2 dentro de Input Group */
     
     /* 1. Obligar al contenedor de Select2 a ajustarse al espacio disponible (flex) */

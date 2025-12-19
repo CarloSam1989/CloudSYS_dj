@@ -5,6 +5,14 @@
 
 {% block content %}
 <style>
+    .swal2-container {
+        z-index: 20000 !important;
+    }
+
+    /* Opcional: Asegurar que el Select2 abierto no se pase de listo */
+    .select2-container--open {
+        z-index: 9999 !important; /* Alto, pero menor que SweetAlert */
+    }
     /* TRUCO CSS: Forzar comportamiento Flexbox en Select2 */
     .input-group > .select2-container--bootstrap-5 {
         flex: 1 1 auto !important;
