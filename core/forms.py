@@ -213,11 +213,12 @@ class ClienteForm(forms.ModelForm):
         model = Cliente
         fields = ['nombre', 'ruc', 'email', 'direccion', 'telefono']
         widgets = {
-            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
-            'ruc': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'direccion': forms.TextInput(attrs={'class': 'form-control'}),
-            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Nombre'}),
+            'ruc': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'RUC'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Email'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Teléfono'}),
+            # rows: 1 hace que la dirección ocupe solo una línea de alto
+            'direccion': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 1, 'placeholder': 'Dirección'}),
         }
 
 class MetodoPagoForm(forms.ModelForm):
