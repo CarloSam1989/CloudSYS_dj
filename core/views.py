@@ -770,7 +770,7 @@ def ventas_view(request):
         'detalle_formset': detalle_formset,
         'ventas': ultimas_ventas
     }
-    return render(request, 'core/ventas.html', context)
+    return render(request, 'ventas.html', context)
 
 # --- VISTAS AJAX (JSON) ---
 
