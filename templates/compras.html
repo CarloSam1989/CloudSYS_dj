@@ -5,18 +5,25 @@
 
 {% block content %}
 <style>
-    /* CSS para arreglar Select2 dentro de Input Group de Bootstrap 5 */
-    .input-group .select2-container--bootstrap-5 {
-        flex: 1 1 auto;
-        width: auto !important; /* Importante para que no fuerce el salto de línea */
+    /* CSS CORREGIDO para Select2 dentro de Input Group */
+    .input-group > .select2-container--bootstrap-5 {
+        flex: 1 1 auto !important;
+        width: auto !important; 
     }
     
-    /* Quitar bordes derechos del select para que se pegue al botón */
-    .input-group .select2-container--bootstrap-5 .select2-selection {
+    /* Quitar bordes derechos y ajustar altura para pegar al botón */
+    .input-group > .select2-container--bootstrap-5 .select2-selection {
         border-top-right-radius: 0 !important;
         border-bottom-right-radius: 0 !important;
+        height: 100% !important; /* Asegura que tenga la misma altura que el botón */
+    }
+
+    /* Asegurar que el grupo no haga wrap */
+    .input-group {
+        flex-wrap: nowrap !important;
     }
 </style>
+
 <main>
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
@@ -173,13 +180,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlBuscarProductos = "{% url 'buscar_productos_ajax' %}";
     const urlBuscarProveedores = "{% url 'buscar_proveedores_ajax' %}"; 
     
-    // --- 1. Inicializar Select2 del Proveedor (Ahora directamente al cargar) ---
-    
+    // --- 1. Inicializar Select2 del Proveedor ---
+    // NOTA: No usamos width:100% aquí, dejamos que el CSS controle el ancho
     $('#{{ compra_form.proveedor.id_for_label }}').select2({
         theme: "bootstrap-5",
-        // width: '100%',  <-- ELIMINA O COMENTA ESTA LÍNEA
-        // Al quitar el width 100%, dejamos que el CSS flexbox del input-group controle el ancho
         placeholder: 'Buscar proveedor...',
+        allowClear: true,
         ajax: {
             url: urlBuscarProveedores,
             dataType: 'json',
@@ -193,9 +199,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function initProductSelect(element) {
         $(element).select2({
             theme: "bootstrap-5",
-            width: '100%',
+            width: '100%', // En la tabla sí queremos el 100% de la celda
             placeholder: 'Buscar producto...',
-            // Ya no necesitamos dropdownParent porque no estamos en modal
             ajax: {
                 url: urlBuscarProductos,
                 dataType: 'json',
@@ -217,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar select2 en filas existentes
     $('.detalle-form select').each(function() { initProductSelect(this); });
 
-    // --- 3. Lógica de Cálculos (Igual que antes) ---
+    // --- 3. Lógica de Cálculos ---
     function calculateRow(row) {
         const cant = parseFloat(row.querySelector('input[name$="cantidad"]').value) || 0;
         const costo = parseFloat(row.querySelector('input[name$="costo_unitario"]').value) || 0;
@@ -229,8 +234,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateTotalHeader() {
         let total = 0;
         document.querySelectorAll('.detalle-form').forEach(row => {
+            // Solo contar filas visibles que no están marcadas para borrar
             if (row.style.display !== 'none') {
-                total += parseFloat(row.querySelector('.subtotal').value) || 0;
+                const delInput = row.querySelector('input[name$="-DELETE"]');
+                if (!delInput || !delInput.checked) {
+                    total += parseFloat(row.querySelector('.subtotal').value) || 0;
+                }
             }
         });
         document.getElementById('total-compra-header').textContent = 'Total: $' + total.toFixed(2);
@@ -242,45 +251,68 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- 4. Agregar / Eliminar Filas ---
-    document.getElementById('add-row').addEventListener('click', function() {
+    // --- 4. Agregar Fila (CORREGIDO - ANTI DOBLE CLICK) ---
+    const btnAdd = document.getElementById('add-row');
+    
+    // Clonamos el botón para eliminar cualquier event listener previo duplicado
+    const newBtnAdd = btnAdd.cloneNode(true);
+    btnAdd.parentNode.replaceChild(newBtnAdd, btnAdd);
+
+    newBtnAdd.addEventListener('click', function(e) {
+        e.preventDefault();
+        
         const formCountInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
         const count = parseInt(formCountInput.value);
         const tmpl = document.getElementById('empty-form').innerHTML.replace(/__prefix__/g, count);
+        
         document.getElementById('detalle-compra-formset').insertAdjacentHTML('beforeend', tmpl);
         
         const newRow = document.getElementById('detalle-compra-formset').lastElementChild;
         initProductSelect(newRow.querySelector('select'));
+        
         formCountInput.value = count + 1;
     });
 
+    // --- 5. Eliminar Fila ---
     document.getElementById('detalle-compra-formset').addEventListener('click', function(e) {
         if (e.target.closest('.delete-row')) {
+            e.preventDefault();
             const row = e.target.closest('tr');
             const delInput = row.querySelector('input[name$="-DELETE"]');
-            if(delInput) { delInput.checked = true; row.style.display = 'none'; }
-            else { row.remove(); }
+            
+            if(delInput) { 
+                delInput.checked = true; 
+                row.style.display = 'none'; 
+            } else { 
+                row.remove(); 
+            }
             updateTotalHeader();
         }
     });
 
-    // --- 5. AJAX Proveedor (Modal Auxiliar) ---
+    // --- 6. AJAX Proveedor ---
     const formProv = document.getElementById('formProveedor');
-    formProv.addEventListener('submit', function(e) {
-        e.preventDefault();
-        fetch(formProv.action, {
-            method: 'POST',
-            body: new FormData(formProv),
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-        }).then(r => r.json()).then(data => {
-            if(data.status === 'success') {
-                const newOption = new Option(data.nombre, data.id, true, true);
-                $('#{{ compra_form.proveedor.id_for_label }}').append(newOption).trigger('change');
-                bootstrap.Modal.getInstance(document.getElementById('modalProveedor')).hide();
-                formProv.reset();
-            }
+    if (formProv) {
+        formProv.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetch(formProv.action, {
+                method: 'POST',
+                body: new FormData(formProv),
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            }).then(r => r.json()).then(data => {
+                if(data.status === 'success') {
+                    const newOption = new Option(data.nombre, data.id, true, true);
+                    $('#{{ compra_form.proveedor.id_for_label }}').append(newOption).trigger('change');
+                    
+                    const modalEl = document.getElementById('modalProveedor');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                    
+                    formProv.reset();
+                }
+            });
         });
-    });
+    }
 });
 </script>
 {% endblock %}
