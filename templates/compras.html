@@ -144,10 +144,11 @@
     </div>
 </main>
 
+           
 <div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form id="formProveedor" action="{% url 'agregar_proveedor_ajax' %}" class="modal-content">
-            <div class="modal-header bg-success text-white py-2"><h5 class="modal-title h6">Nuevo Proveedor</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header bg-light text-white py-2"><h5 class="modal-title h6">Nuevo Proveedor</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="mb-2"><label class="small fw-bold">Razón Social</label><input type="text" name="nombre" class="form-control form-control-sm" required></div>
                 <div class="row g-2 mb-2">
@@ -179,15 +180,13 @@
 
 {% block javascript %}
 <script>
-// Usamos $(function(){}) que es el shorthand de jQuery para DOMContentLoaded
 $(function() {
     const urlBuscarProductos = "{% url 'buscar_productos_ajax' %}";
     const urlBuscarProveedores = "{% url 'buscar_proveedores_ajax' %}"; 
-    
-    // --- 1. Inicializar Select2 del Proveedor ---
+
+    // 1. Inicializar Proveedor (CSS controla el ancho)
     $('#{{ compra_form.proveedor.id_for_label }}').select2({
         theme: "bootstrap-5",
-        // NOTA IMPORTANTE: No definas 'width' aquí, deja que el CSS (width: 1% !important) haga el trabajo
         placeholder: 'Buscar proveedor...',
         allowClear: true,
         ajax: {
@@ -199,11 +198,16 @@ $(function() {
         }
     });
 
-    // --- 2. Función de Select2 para Productos ---
+    // 2. Función para inicializar productos
     function initProductSelect(element) {
+        // PREVENCIÓN: Si ya tiene select2, no hacer nada o destruirlo primero
+        if ($(element).hasClass("select2-hidden-accessible")) {
+            try { $(element).select2('destroy'); } catch(e){}
+        }
+
         $(element).select2({
             theme: "bootstrap-5",
-            width: '100%', // Aquí SI queremos 100% porque está dentro de una celda de tabla
+            width: '100%',
             placeholder: 'Buscar producto...',
             ajax: {
                 url: urlBuscarProductos,
@@ -215,21 +219,21 @@ $(function() {
         }).on('select2:select', function(e) {
             const data = e.params.data;
             const row = $(this).closest('tr');
-            
             if(data.costo || data.precio_compra) {
                 row.find('input[name$="costo_unitario"]').val(data.costo || data.precio_compra);
             }
             row.find('input[name$="cantidad"]').val(1);
-            calculateRow(row[0]); // Pasamos el elemento DOM nativo a la función de cálculo
+            calculateRow(row[0]);
         });
     }
 
-    // Inicializar select2 en filas existentes
-    $('.detalle-form select').each(function() { initProductSelect(this); });
+    // Inicializar solo las filas VISIBLES al cargar (evita tocar el empty-form)
+    $('#detalle-compra-formset tr.detalle-form:not(#empty-form tr)').find('select').each(function() { 
+        initProductSelect(this); 
+    });
 
-    // --- 3. Lógica de Cálculos ---
+    // 3. Cálculos
     function calculateRow(row) {
-        // Usamos querySelector nativo para velocidad, o jQuery find, da igual
         const cant = parseFloat($(row).find('input[name$="cantidad"]').val()) || 0;
         const costo = parseFloat($(row).find('input[name$="costo_unitario"]').val()) || 0;
         const subtotal = cant * costo;
@@ -239,52 +243,56 @@ $(function() {
 
     function updateTotalHeader() {
         let total = 0;
-        $('.detalle-form').each(function() {
+        $('#detalle-compra-formset tr.detalle-form:visible').each(function() {
             const row = $(this);
-            // Verificar que sea visible y no esté marcada para borrar
-            const isDeleted = row.find('input[name$="-DELETE"]').is(':checked');
-            if (row.is(':visible') && !isDeleted) {
+            if (!row.find('input[name$="-DELETE"]').is(':checked')) {
                 total += parseFloat(row.find('.subtotal').val()) || 0;
             }
         });
         $('#total-compra-header').text('Total: $' + total.toFixed(2));
     }
 
-    // Event delegation con jQuery para cálculos en tiempo real
     $('#detalle-compra-formset').on('input', 'input[name$="cantidad"], input[name$="costo_unitario"]', function() {
         calculateRow($(this).closest('tr')[0]);
     });
 
-    // --- 4. Agregar Fila (SOLUCIÓN DEFINITIVA A DOBLE FILA) ---
-    // .off('click') elimina CUALQUIER listener previo antes de agregar el nuevo.
-    // Esto previene duplicados si el script se carga 2 veces.
+    // --- 4. AGREGAR FILA (CORREGIDO - LIMPIEZA DE BASURA) ---
     $('#add-row').off('click').on('click', function(e) {
         e.preventDefault();
-        e.stopPropagation(); // Detiene burbujeo
         
         const formCountInput = $('input[name$="-TOTAL_FORMS"]');
         const count = parseInt(formCountInput.val());
         
-        // Reemplazar prefijo
-        const tmpl = $('#empty-form').html().replace(/__prefix__/g, count);
+        // Obtenemos el HTML de la plantilla
+        let tmplHtml = $('#empty-form').html();
         
-        // Insertar
-        $('#detalle-compra-formset').append(tmpl);
+        // Reemplazamos el prefijo __prefix__ por el número actual
+        tmplHtml = tmplHtml.replace(/__prefix__/g, count);
         
-        // Inicializar Select2 en la nueva fila
-        const newRow = $('#detalle-compra-formset tr:last-child');
-        initProductSelect(newRow.find('select'));
+        // Creamos un objeto jQuery temporal con ese HTML
+        let $newRow = $(tmplHtml);
+
+        // --- LIMPIEZA QUIRÚRGICA ---
+        // Esto elimina el "segundo select" fantasma si venía pegado en el HTML
+        $newRow.find('.select2-container').remove();       // Elimina el span de select2 si se copió
+        $newRow.find('.select2-hidden-accessible').removeClass('select2-hidden-accessible').removeAttr('data-select2-id').removeAttr('aria-hidden'); // Resetea el select original
+        $newRow.find('select').show(); // Asegura que el select original esté visible para que Select2 lo tome bien
+        // ---------------------------
+
+        // Insertamos la fila limpia
+        $('#detalle-compra-formset').append($newRow);
         
-        // Actualizar contador
+        // Inicializamos Select2 SOLO en la nueva fila
+        initProductSelect($newRow.find('select'));
+        
         formCountInput.val(count + 1);
     });
 
-    // --- 5. Eliminar Fila ---
+    // 5. Eliminar
     $('#detalle-compra-formset').on('click', '.delete-row', function(e) {
         e.preventDefault();
         const row = $(this).closest('tr');
         const delInput = row.find('input[name$="-DELETE"]');
-        
         if(delInput.length > 0) {
             delInput.prop('checked', true);
             row.hide();
@@ -294,26 +302,19 @@ $(function() {
         updateTotalHeader();
     });
 
-    // --- 6. AJAX Proveedor ---
+    // 6. Proveedor Ajax
     $('#formProveedor').on('submit', function(e) {
         e.preventDefault();
         const form = $(this);
         $.ajax({
-            url: form.attr('action'),
-            type: 'POST',
-            data: new FormData(this),
-            processData: false,
-            contentType: false,
+            url: form.attr('action'), type: 'POST',
+            data: new FormData(this), processData: false, contentType: false,
             headers: {'X-CSRFToken': '{{ csrf_token }}'},
             success: function(data) {
                 if(data.status === 'success') {
                     const newOption = new Option(data.nombre, data.id, true, true);
                     $('#{{ compra_form.proveedor.id_for_label }}').append(newOption).trigger('change');
-                    
-                    const modalEl = document.getElementById('modalProveedor');
-                    const modal = bootstrap.Modal.getInstance(modalEl);
-                    modal.hide();
-                    
+                    bootstrap.Modal.getInstance(document.getElementById('modalProveedor')).hide();
                     form[0].reset();
                 }
             }
