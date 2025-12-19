@@ -276,24 +276,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const emptyFormTemplate = document.getElementById('empty-form-template');
 
     // Clonamos el botón para eliminar listeners fantasmas previos
-    const newAddBtn = addBtn.cloneNode(true);
-    addBtn.parentNode.replaceChild(newAddBtn, addBtn);
-
-    newAddBtn.addEventListener('click', function(e) {
-        e.preventDefault(); 
-        e.stopPropagation();
-
-        let formIdx = parseInt(totalFormsInput.value);
-        let newRowHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formIdx);
+    if (addBtn && formsetContainer && totalFormsInput && emptyFormTemplate) {
         
-        formsetContainer.insertAdjacentHTML('beforeend', newRowHtml);
-        totalFormsInput.value = formIdx + 1;
+        // TRUCO DEFINITIVO: Usar .onclick sobrescribe cualquier evento previo.
+        // Ya no usamos addEventListener para evitar duplicados.
+        addBtn.onclick = function(e) {
+            e.preventDefault();   // Evita recargas
+            e.stopPropagation();  // Evita burbujeo
 
-        // Inicializar Select2 en la nueva fila
-        const newRow = formsetContainer.lastElementChild;
-        initProductSelect(newRow.querySelector('select'));
-    });
+            // 1. Obtener índice actual
+            let formIdx = parseInt(totalFormsInput.value);
+            
+            // 2. Preparar el HTML reemplazando __prefix__
+            let newRowHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formIdx);
+            
+            // 3. Insertar al final del contenedor
+            formsetContainer.insertAdjacentHTML('beforeend', newRowHtml);
 
+            // 4. Aumentar contador de Django
+            totalFormsInput.value = formIdx + 1;
+
+            // 5. Inicializar el Select2 de la NUEVA fila solamente
+            const newRow = formsetContainer.lastElementChild;
+            const newSelect = newRow.querySelector('select');
+            if(newSelect) initProductSelect(newSelect);
+        };
+    }
     // Eliminar fila
     formsetContainer.addEventListener('click', function(e) {
         if (e.target.closest('.delete-row')) {

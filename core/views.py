@@ -1283,7 +1283,7 @@ def cotizaciones(request):
     # Listado para la tabla inferior
     cotizaciones_list = Cotizacion.objects.all().order_by('-fecha_emision')
 
-    return render(request, 'core/cotizaciones.html', {
+    return render(request, 'cotizaciones.html', {
         'cotizacion_form': form,
         'detalle_formset': formset,
         'cotizaciones': cotizaciones_list
