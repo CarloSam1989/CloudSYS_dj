@@ -4,6 +4,19 @@
 {% block title %}Gestión de Compras{% endblock %}
 
 {% block content %}
+<style>
+    /* CSS para arreglar Select2 dentro de Input Group de Bootstrap 5 */
+    .input-group .select2-container--bootstrap-5 {
+        flex: 1 1 auto;
+        width: auto !important; /* Importante para que no fuerce el salto de línea */
+    }
+    
+    /* Quitar bordes derechos del select para que se pegue al botón */
+    .input-group .select2-container--bootstrap-5 .select2-selection {
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+    }
+</style>
 <main>
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
@@ -161,9 +174,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlBuscarProveedores = "{% url 'buscar_proveedores_ajax' %}"; 
     
     // --- 1. Inicializar Select2 del Proveedor (Ahora directamente al cargar) ---
+    
     $('#{{ compra_form.proveedor.id_for_label }}').select2({
         theme: "bootstrap-5",
-        width: '100%',
+        // width: '100%',  <-- ELIMINA O COMENTA ESTA LÍNEA
+        // Al quitar el width 100%, dejamos que el CSS flexbox del input-group controle el ancho
         placeholder: 'Buscar proveedor...',
         ajax: {
             url: urlBuscarProveedores,
