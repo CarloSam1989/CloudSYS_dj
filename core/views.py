@@ -1516,3 +1516,27 @@ def prestamo_detail(request, pk):
         'prestamo': prestamo,
         'cuotas': cuotas
     })
+
+def buscar_productos_venta_ajax(request):
+    """
+    Busca productos para Ventas/Cotizaciones.
+    Devuelve 'precio' (PVP) en lugar de costo.
+    """
+    query = request.GET.get('q', '')
+    data = []
+
+    if query:
+        # Busca por nombre o código
+        productos = Producto.objects.filter(
+            Q(nombre__icontains=query) | Q(codigo__icontains=query)
+        ).values('id', 'codigo', 'nombre', 'precio', 'stock')[:20]
+
+        for p in productos:
+            data.append({
+                'id': p['id'],
+                'text': f"{p['codigo']} - {p['nombre']} (Stock: {p['stock']})",
+                'precio': float(p['precio']), # Importante: Precio de Venta
+                'stock': p['stock']
+            })
+    
+    return JsonResponse({'results': data})
