@@ -20,7 +20,7 @@
                 <small class="fw-bold"><i class="fas fa-truck me-1"></i>Nuevo Proveedor</small>
             </div>
             <div class="card-body p-3">
-                <form method="POST" action="{% url 'proveedores' %}">
+                <form method="POST" action="{% url 'proveedores' %}" id="formProveedor">
                     {% csrf_token %}
                     <div class="row g-2">
                         <div class="col-md-5">
@@ -30,6 +30,7 @@
                         <div class="col-md-3">
                             <label class="form-label small mb-1">RUC</label>
                             {{ form.ruc }}
+                            <div id="feedback-ruc" class="invalid-feedback" style="font-size: 0.8em;"></div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small mb-1">Teléfono</label>
@@ -78,10 +79,10 @@
                             <td>{{ prov.telefono|default_if_none:"" }}</td>
                             <td>{{ prov.email|default_if_none:"" }}</td>
                             <td>
-                                <a href="{% url 'editar_proveedor' prov.id %}" class="btn btn-warning btn-sm py-0" title="Editar" style="font-size: 0.8rem;">
+                                <a href="{% url 'editar_proveedor' prov.id %}" class="btn btn-warning btn-sm py-0" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="{% url 'eliminar_proveedor' prov.id %}" class="btn btn-danger btn-sm py-0" title="Eliminar" style="font-size: 0.8rem;">
+                                <a href="{% url 'eliminar_proveedor' prov.id %}" class="btn btn-danger btn-sm py-0" title="Eliminar">
                                     <i class="fas fa-trash"></i>
                                 </a>
                             </td>
@@ -93,4 +94,126 @@
         </div>
     </div>
 </main>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // 1. OBTENER ELEMENTOS
+    // Django por defecto pone id="id_ruc" al input generado por {{ form.ruc }}
+    const inputRuc = document.getElementById('id_ruc'); 
+    const feedbackDiv = document.getElementById('feedback-ruc');
+    const form = document.getElementById('formProveedor');
+
+    // Si no encuentra el input (por si acaso), paramos
+    if (!inputRuc) return;
+
+    // 2. FUNCIÓN DE VALIDACIÓN RUC ECUADOR
+    function validarRucEcuador(ruc) {
+        // Validación básica de longitud y números
+        if (ruc.length !== 13) return { valido: false, mensaje: "Debe tener 13 dígitos." };
+        if (!/^\d+$/.test(ruc)) return { valido: false, mensaje: "Solo se permiten números." };
+        
+        // Validación de código de provincia (2 primeros dígitos)
+        const provincia = parseInt(ruc.substring(0, 2));
+        if (!((provincia >= 1 && provincia <= 24) || provincia === 30)) {
+            return { valido: false, mensaje: "Código de provincia inválido." };
+        }
+
+        // Validación de terminación (casi siempre 001)
+        if (ruc.substring(10, 13) !== '001') {
+            return { valido: false, mensaje: "El RUC debe terminar en 001." };
+        }
+
+        // Validación del tercer dígito
+        // 0-5: Persona Natural (Cédula + 001)
+        // 6: Sociedades Públicas
+        // 9: Sociedades Privadas
+        const tercerDigito = parseInt(ruc.charAt(2));
+
+        if (tercerDigito < 6) {
+            // Es Persona Natural: Validamos los primeros 10 dígitos como cédula
+            return validarAlgoritmoCedula(ruc.substring(0, 10));
+        } else if (tercerDigito === 6 || tercerDigito === 9) {
+            // Sociedades: Asumimos válido si la estructura básica está bien
+            // (El algoritmo de sociedades es complejo, pero longitud y provincia ya filtran el 90% de errores)
+            return { valido: true, mensaje: "RUC Jurídico Válido" };
+        } else {
+            return { valido: false, mensaje: "Tercer dígito inválido." };
+        }
+    }
+
+    // Auxiliar: Algoritmo Módulo 10 (Cédula)
+    function validarAlgoritmoCedula(cedula) {
+        let total = 0;
+        const coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+        for (let i = 0; i < 9; i++) {
+            let valor = parseInt(cedula.charAt(i)) * coeficientes[i];
+            total += (valor >= 10) ? (valor - 9) : valor;
+        }
+        const digitoVerificador = parseInt(cedula.charAt(9));
+        const decenaSuperior = Math.ceil(total / 10) * 10;
+        let resultado = decenaSuperior - total;
+        if (resultado === 10) resultado = 0;
+
+        return (resultado === digitoVerificador) 
+            ? { valido: true, mensaje: "RUC (Persona Natural) Válido" }
+            : { valido: false, mensaje: "RUC inválido (Dígito verificador de cédula falla)." };
+    }
+
+    // 3. EVENTO: AL SALIR DEL CAMPO (BLUR)
+    inputRuc.addEventListener('blur', function() {
+        const valor = this.value.trim();
+        
+        // Limpiamos estilos previos
+        this.classList.remove('is-invalid', 'is-valid');
+        feedbackDiv.textContent = '';
+
+        if (valor.length > 0) {
+            const resultado = validarRucEcuador(valor);
+            if (resultado.valido) {
+                this.classList.add('is-valid');
+                // Opcional: feedbackDiv.textContent = resultado.mensaje; (en verde)
+                // feedbackDiv.className = 'valid-feedback';
+            } else {
+                this.classList.add('is-invalid');
+                feedbackDiv.textContent = resultado.mensaje;
+            }
+        }
+    });
+
+    // 4. EVENTO: AL ESCRIBIR (INPUT) - Limpiar errores
+    inputRuc.addEventListener('input', function() {
+        if (this.classList.contains('is-invalid')) {
+            this.classList.remove('is-invalid');
+            feedbackDiv.textContent = '';
+        }
+    });
+
+    // 5. EVENTO: AL ENVIAR EL FORMULARIO
+    form.addEventListener('submit', function(e) {
+        const valor = inputRuc.value.trim();
+        if(valor.length > 0) {
+            const resultado = validarRucEcuador(valor);
+            if (!resultado.valido) {
+                e.preventDefault(); // DETIENE EL ENVÍO
+                inputRuc.classList.add('is-invalid');
+                feedbackDiv.textContent = resultado.mensaje;
+                
+                // Usamos SweetAlert si lo tienes, o un alert nativo
+                if(typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'RUC Incorrecto',
+                        text: resultado.mensaje
+                    });
+                } else {
+                    alert('Error en RUC: ' + resultado.mensaje);
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

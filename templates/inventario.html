@@ -12,15 +12,85 @@
             <li class="breadcrumb-item active">Inventario</li>
         </ol>
 
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-boxes me-1"></i> Listado de Productos</span>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalProducto">
-                    <i class="fas fa-plus"></i> Nuevo Producto
-                </button>
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-plus-circle me-1"></i> Registrar Nuevo Producto
             </div>
             <div class="card-body">
-                <table id="datatablesSimple" class="table table-striped table-hover">
+                <form method="POST" action="{% url 'inventario' %}" id="formProductoMain">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Código</label>
+                            {{ form.codigo }}
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Nombre</label>
+                            {{ form.nombre }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Categoría</label>
+                            <div class="input-group input-group-sm">
+                                {{ form.categoria }}
+                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-bs-toggle="modal" data-bs-target="#modalCategoria">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="form-check form-switch mb-2">
+                                {{ form.maneja_iva }}
+                                <label class="form-check-label small" for="{{ form.maneja_iva.id_for_label }}">Grava IVA</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Marca</label>
+                            <div class="input-group input-group-sm">
+                                {{ form.marca }}
+                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-bs-toggle="modal" data-bs-target="#modalMarca">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Modelo</label>
+                            <div class="input-group input-group-sm">
+                                {{ form.modelo }}
+                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-bs-toggle="modal" data-bs-target="#modalModelo">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Stock Inicial</label>
+                            {{ form.stock }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Costo ($)</label>
+                            {{ form.costo }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">P. Venta ($)</label>
+                            {{ form.precio }}
+                        </div>
+
+                        <div class="col-12 text-end mt-3">
+                            <button type="reset" class="btn btn-secondary btn-sm">Limpiar</button>
+                            <button type="submit" class="btn btn-primary btn-sm px-4">Guardar Producto</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-boxes me-1"></i> Productos Existentes
+            </div>
+            <div class="card-body">
+                <table id="datatablesSimple" class="table table-sm table-striped table-hover">
                     <thead>
                         <tr>
                             <th>Código</th>
@@ -28,7 +98,7 @@
                             <th>Categoría</th>
                             <th>Marca</th>
                             <th>Stock</th>
-                            <th>P. Venta</th>
+                            <th>Precio</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -40,16 +110,14 @@
                             <td>{{ producto.categoria.nombre|default:"-" }}</td>
                             <td>{{ producto.marca.nombre|default:"-" }}</td>
                             <td>
-                                {% if producto.stock <= 5 %}
-                                    <span class="badge bg-danger">{{ producto.stock }}</span>
-                                {% else %}
-                                    <span class="badge bg-success">{{ producto.stock }}</span>
-                                {% endif %}
+                                <span class="badge {% if producto.stock <= 5 %}bg-danger{% else %}bg-success{% endif %}">
+                                    {{ producto.stock }}
+                                </span>
                             </td>
                             <td>${{ producto.precio|floatformat:2 }}</td>
                             <td>
-                                <a href="#" class="btn btn-warning btn-sm btn-icon"><i class="fas fa-edit"></i></a>
-                                <a href="#" class="btn btn-danger btn-sm btn-icon"><i class="fas fa-trash"></i></a>
+                                <a href="#" class="text-warning me-2"><i class="fas fa-edit"></i></a>
+                                <a href="#" class="text-danger"><i class="fas fa-trash"></i></a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -60,108 +128,12 @@
     </div>
 </main>
 
-<div class="modal fade" id="modalProducto" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="POST" action="{% url 'inventario' %}" id="formProductoMain">
-                {% csrf_token %}
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">Nuevo Producto</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold">Código</label>
-                            {{ form.codigo }}
-                        </div>
-                        <div class="col-md-7">
-                            <label class="form-label small fw-bold">Nombre del Producto</label>
-                            {{ form.nombre }}
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end pb-1">
-                            <div class="form-check form-switch">
-                                {{ form.maneja_iva }}
-                                <label class="form-check-label small" for="{{ form.maneja_iva.id_for_label }}">I.V.A.</label>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Categoría</label>
-                            <div class="input-group">
-                                {{ form.categoria }}
-                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-target="#modalCategoria">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Marca</label>
-                            <div class="input-group">
-                                {{ form.marca }}
-                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-target="#modalMarca">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Modelo</label>
-                            <div class="input-group">
-                                {{ form.modelo }}
-                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-target="#modalModelo">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Stock Inicial</label>
-                            {{ form.stock }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Costo Compra</label>
-                            <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                {{ form.costo }}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Precio Venta</label>
-                            <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                {{ form.precio }}
-                            </div>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label small fw-bold">Descripción / Detalles</label>
-                            {{ form.descripcion }}
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="modalCategoria" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-sm">
         <form id="formCategoria" action="{% url 'agregar_categoria_ajax' %}" class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h6 class="modal-title">Nueva Categoría</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <label class="form-label">Nombre</label>
-                <input type="text" name="nombre" class="form-control" required>
-            </div>
-            <div class="modal-footer p-1">
-                <button type="submit" class="btn btn-success btn-sm w-100">Guardar</button>
-            </div>
+            <div class="modal-header bg-secondary text-white py-2"><h6 class="modal-title">Nueva Categoría</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Categoría" required></div>
+            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
         </form>
     </div>
 </div>
@@ -169,41 +141,22 @@
 <div class="modal fade" id="modalMarca" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-sm">
         <form id="formMarca" action="{% url 'agregar_marca_ajax' %}" class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h6 class="modal-title">Nueva Marca</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <label class="form-label">Nombre</label>
-                <input type="text" name="nombre" class="form-control" required>
-            </div>
-            <div class="modal-footer p-1">
-                <button type="submit" class="btn btn-success btn-sm w-100">Guardar</button>
-            </div>
+            <div class="modal-header bg-secondary text-white py-2"><h6 class="modal-title">Nueva Marca</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Marca" required></div>
+            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
         </form>
     </div>
 </div>
 
 <div class="modal fade" id="modalModelo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-sm">
         <form id="formModelo" action="{% url 'agregar_modelo_ajax' %}" class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h6 class="modal-title">Nuevo Modelo</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
+            <div class="modal-header bg-secondary text-white py-2"><h6 class="modal-title">Nuevo Modelo</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
-                <div class="mb-2">
-                    <label class="form-label">Marca Asociada</label>
-                    <select name="marca" id="id_marca_modelo_modal" class="form-select" required></select>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Nombre del Modelo</label>
-                    <input type="text" name="nombre" class="form-control" required>
-                </div>
+                <select name="marca" id="id_marca_modelo_modal" class="form-select form-select-sm mb-2" required></select>
+                <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Modelo" required>
             </div>
-            <div class="modal-footer p-1">
-                <button type="submit" class="btn btn-success btn-sm w-100">Guardar</button>
-            </div>
+            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
         </form>
     </div>
 </div>
@@ -214,105 +167,59 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    const mainModalEl = document.getElementById('modalProducto');
-    const mainModal = new bootstrap.Modal(mainModalEl);
+    // 1. SELECT2 INICIALIZACIÓN (Directa, sin esperar modal)
+    // Asumiendo que usas jQuery para select2
+    $('#{{ form.categoria.id_for_label }}').select2({ theme: "bootstrap-5", width: '100%', placeholder: 'Seleccionar...' });
+    $('#{{ form.marca.id_for_label }}').select2({ theme: "bootstrap-5", width: '100%', placeholder: 'Seleccionar...' });
+    $('#{{ form.modelo.id_for_label }}').select2({ theme: "bootstrap-5", width: '100%', placeholder: 'Seleccionar...' });
 
-    // ==========================================
-    // 1. MANEJO DE NAVEGACIÓN ENTRE MODALES
-    // ==========================================
-    // Esta función maneja: Ocultar Principal -> Mostrar Secundario -> Al cerrar Secundario -> Mostrar Principal
+    // 2. LÓGICA DE MODALES AUXILIARES (AJAX)
+    // Ya no necesitamos ocultar el principal, porque el principal es la página misma.
     
-    document.querySelectorAll('.btn-add-ajax').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const targetId = this.getAttribute('data-target');
-            const targetModalEl = document.querySelector(targetId);
-            const targetModal = new bootstrap.Modal(targetModalEl);
-
-            // 1. Ocultar modal principal (sin destruir datos)
-            mainModal.hide();
-
-            // 2. Lógica especial para Modelo: Copiar marcas del principal al secundario
-            if(targetId === '#modalModelo') {
-                const marcaPrincipal = document.querySelector('#id_marca'); // ID generado por Django
-                const marcaModal = document.querySelector('#id_marca_modelo_modal');
-                if(marcaPrincipal && marcaModal) {
-                    marcaModal.innerHTML = marcaPrincipal.innerHTML;
-                    marcaModal.value = marcaPrincipal.value;
-                }
-            }
-
-            // 3. Mostrar modal secundario
-            targetModal.show();
-
-            // 4. Cuando el secundario se cierre (por X o Cancelar), reabrir el principal
-            targetModalEl.addEventListener('hidden.bs.modal', function handler() {
-                mainModal.show();
-                targetModalEl.removeEventListener('hidden.bs.modal', handler); // Limpiar evento
-            });
+    // Copiar marcas al modal de modelo cuando se abre
+    const modalModeloEl = document.getElementById('modalModelo');
+    modalModeloEl.addEventListener('show.bs.modal', function() {
+        const marcaPrincipal = document.getElementById('{{ form.marca.id_for_label }}');
+        const marcaModal = document.getElementById('id_marca_modelo_modal');
+        // Copiamos las opciones
+        marcaModal.innerHTML = ''; 
+        Array.from(marcaPrincipal.options).forEach(opt => {
+            if(opt.value) marcaModal.add(new Option(opt.text, opt.value));
         });
+        // Si hay una seleccionada en el principal, la pre-seleccionamos en el modal
+        if(marcaPrincipal.value) marcaModal.value = marcaPrincipal.value;
     });
 
-    // ==========================================
-    // 2. LOGICA AJAX GENÉRICA PARA GUARDAR
-    // ==========================================
     function setupAjaxForm(formId, targetSelectId, modalId) {
         const form = document.getElementById(formId);
-        if(!form) return;
-
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(form);
-            
             fetch(form.action, {
                 method: 'POST',
-                body: formData,
+                body: new FormData(form),
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' }
             })
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // 1. Agregar nueva opción al Select del formulario principal
-                    const select = document.getElementById(targetSelectId); // ej: id_categoria
-                    if(select) {
-                        const newOption = new Option(data.nombre, data.id, true, true);
-                        select.add(newOption);
-                        
-                        // Si usas Select2, necesitas disparar el evento change
-                        // $(select).trigger('change'); 
-                    }
+                    // Agregar al select principal
+                    const newOption = new Option(data.nombre, data.id, true, true);
+                    const select = document.getElementById(targetSelectId);
+                    select.add(newOption);
+                    $(select).trigger('change'); // Actualizar Select2
 
-                    // 2. Cerrar el modal secundario (esto disparará el evento hidden.bs.modal que abre el principal)
-                    const modalEl = document.getElementById(modalId);
-                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                    modalInstance.hide();
-
-                    // 3. Limpiar formulario
+                    // Cerrar modal auxiliar
+                    bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
                     form.reset();
-
-                    // 4. Notificación
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Guardado',
-                        text: `${data.nombre} agregado correctamente`,
-                        timer: 1500,
-                        showConfirmButton: false,
-                        backdrop: false // Importante para no oscurecer el modal principal
-                    });
-
-                } else {
-                    Swal.fire('Error', 'Verifica los datos ingresados', 'error');
+                    Swal.fire({ icon: 'success', title: 'Agregado', timer: 1000, showConfirmButton: false });
                 }
-            })
-            .catch(error => console.error('Error:', error));
+            });
         });
     }
 
-    // Configurar los 3 formularios Ajax
-    // IMPORTANTE: Los IDs 'id_categoria', 'id_marca' vienen de Django forms por defecto.
-    setupAjaxForm('formCategoria', 'id_categoria', 'modalCategoria');
-    setupAjaxForm('formMarca', 'id_marca', 'modalMarca');
-    setupAjaxForm('formModelo', 'id_modelo', 'modalModelo');
-
+    setupAjaxForm('formCategoria', '{{ form.categoria.id_for_label }}', 'modalCategoria');
+    setupAjaxForm('formMarca', '{{ form.marca.id_for_label }}', 'modalMarca');
+    setupAjaxForm('formModelo', '{{ form.modelo.id_for_label }}', 'modalModelo');
 });
 </script>
 {% endblock %}

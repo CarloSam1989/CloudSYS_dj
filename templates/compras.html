@@ -12,89 +12,38 @@
             <li class="breadcrumb-item active">Compras</li>
         </ol>
 
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-shopping-cart me-1"></i> Listado de Compras</span>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAgregarCompra">
-                    <i class="fas fa-cart-plus"></i> Nueva Compra
-                </button>
+        <div class="card mb-4 border-success shadow-sm">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-cart-plus me-1"></i> Nueva Compra</span>
+                <span class="badge bg-white text-success" id="total-compra-header">Total: $0.00</span>
             </div>
             <div class="card-body">
-                <table id="datatablesSimple" class="table table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Proveedor</th>
-                            <th>Fecha</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for compra in compras %}
-                        <tr class="{% if compra.estado == 'N' %}table-danger text-muted{% endif %}">
-                            <td>{{ compra.id|stringformat:"06d" }}</td>
-                            <td>{{ compra.proveedor.nombre }}</td>
-                            <td>{{ compra.fecha|date:"d/m/Y" }}</td>
-                            <td>${{ compra.total|floatformat:2 }}</td>
-                            <td>
-                                {% if compra.estado == 'A' %}
-                                    <span class="badge bg-success">Activa</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Anulada</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="#" class="btn btn-info btn-sm text-white" title="PDF"><i class="fas fa-file-pdf"></i></a>
-                                    {% if compra.estado == 'A' %}
-                                        <a href="#" class="btn btn-outline-danger btn-sm" title="Anular"><i class="fas fa-ban"></i></a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</main>
-
-<div class="modal fade" id="modalAgregarCompra" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-xl"> <div class="modal-content">
-            <form method="POST" action="{% url 'compras' %}" id="formCompra">
-                {% csrf_token %}
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">Registrar Nueva Compra</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                
-                <div class="modal-body">
-                    <div class="row g-3 mb-4 p-3 bg-light rounded border">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small">Proveedor</label>
-                            <div class="input-group">
-                                {{ compra_form.proveedor }} <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-target="#modalProveedor">
+                <form method="POST" action="{% url 'compras' %}" id="formCompra">
+                    {% csrf_token %}
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Proveedor</label>
+                            <div class="input-group input-group-sm">
+                                {{ compra_form.proveedor }}
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#modalProveedor">
                                     <i class="fas fa-user-plus"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-bold small">Fecha Compra</label>
+                            <label class="form-label small fw-bold">Fecha</label>
                             {{ compra_form.fecha }}
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold small">Nº Factura (Ref)</label>
-                            <input type="text" class="form-control" placeholder="Ej: 001-001-1234">
+                        <div class="col-md-4 d-flex align-items-end justify-content-end">
+                            <button type="reset" class="btn btn-secondary btn-sm me-2">Limpiar</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4 fw-bold">Registrar Compra</button>
                         </div>
                     </div>
 
-                    <h6 class="fw-bold mb-2">Detalle de Productos</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered align-middle">
-                            <thead class="table-light text-center">
+                    <div class="table-responsive bg-light border rounded p-2">
+                        <table class="table table-sm table-borderless align-middle mb-0">
+                            <thead class="text-secondary small border-bottom">
                                 <tr>
                                     <th style="width: 40%;">Producto</th>
                                     <th style="width: 15%;">Cantidad</th>
@@ -111,34 +60,78 @@
                                     <td class="p-1">{{ form.producto }}</td>
                                     <td class="p-1">{{ form.cantidad }}</td>
                                     <td class="p-1">{{ form.costo_unitario }}</td>
-                                    <td class="p-1">
-                                        <input type="text" class="form-control form-control-sm text-end fw-bold subtotal" readonly value="0.00">
-                                    </td>
+                                    <td class="p-1"><input type="text" class="form-control form-control-sm text-end fw-bold subtotal" readonly value="0.00"></td>
                                     <td class="p-1 text-center">
-                                        <button type="button" class="btn btn-outline-danger btn-xs delete-row border-0"><i class="fas fa-times"></i></button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm border-0 delete-row"><i class="fas fa-times"></i></button>
                                         <div class="d-none">{{ form.DELETE }}</div>
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                        <div class="mt-2">
+                            <button type="button" id="add-row" class="btn btn-link btn-sm text-decoration-none">
+                                <i class="fas fa-plus-circle"></i> Agregar fila
+                            </button>
+                        </div>
                     </div>
-                    <button type="button" id="add-row" class="btn btn-success btn-sm mt-2">
-                        <i class="fas fa-plus-circle"></i> Agregar Producto
-                    </button>
-                </div>
-
-                <div class="modal-footer bg-light d-flex justify-content-between">
-                    <div>
-                        <h5 class="mb-0 text-primary fw-bold">Total a Pagar: <span id="total-compra-display">$0.00</span></h5>
-                    </div>
-                    <div>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary fw-bold px-4">Guardar Compra</button>
-                    </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-history me-1"></i> Últimas Compras
+            </div>
+            <div class="card-body">
+                <table id="datatablesSimple" class="table table-striped table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Proveedor</th>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compra in compras %}
+                        <tr class="{% if compra.estado == 'N' %}table-danger text-muted{% endif %}">
+                            <td>{{ compra.id|stringformat:"05d" }}</td>
+                            <td>{{ compra.proveedor.nombre }}</td>
+                            <td>{{ compra.fecha|date:"d/m/Y" }}</td>
+                            <td>${{ compra.total|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge {% if compra.estado == 'A' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ compra.estado }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="#" class="btn btn-info btn-sm py-0 px-2 text-white" title="PDF"><i class="fas fa-file-pdf"></i></a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="formProveedor" action="{% url 'agregar_proveedor_ajax' %}" class="modal-content">
+            <div class="modal-header bg-success text-white py-2"><h5 class="modal-title h6">Nuevo Proveedor</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label class="small fw-bold">Razón Social</label><input type="text" name="nombre" class="form-control form-control-sm" required></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="small fw-bold">RUC</label><input type="text" name="ruc" class="form-control form-control-sm"></div>
+                    <div class="col-6"><label class="small fw-bold">Teléfono</label><input type="text" name="telefono" class="form-control form-control-sm"></div>
+                </div>
+            </div>
+            <div class="modal-footer py-1"><button type="submit" class="btn btn-success btn-sm w-100">Guardar</button></div>
+        </form>
     </div>
 </div>
 
@@ -148,126 +141,44 @@
             <td class="p-1">{{ detalle_formset.empty_form.producto }}</td>
             <td class="p-1">{{ detalle_formset.empty_form.cantidad }}</td>
             <td class="p-1">{{ detalle_formset.empty_form.costo_unitario }}</td>
-            <td class="p-1">
-                <input type="text" class="form-control form-control-sm text-end fw-bold subtotal" readonly value="0.00">
-            </td>
+            <td class="p-1"><input type="text" class="form-control form-control-sm text-end fw-bold subtotal" readonly value="0.00"></td>
             <td class="p-1 text-center">
-                <button type="button" class="btn btn-outline-danger btn-xs delete-row border-0"><i class="fas fa-times"></i></button>
+                <button type="button" class="btn btn-outline-danger btn-sm border-0 delete-row"><i class="fas fa-times"></i></button>
                 <div class="d-none">{{ detalle_formset.empty_form.DELETE }}</div>
             </td>
         </tr>
     </tbody>
 </table>
 
-<div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <form id="formProveedor" action="{% url 'agregar_proveedor_ajax' %}" class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">Nuevo Proveedor</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Razón Social / Nombre</label>
-                    <input type="text" name="nombre" class="form-control" required>
-                </div>
-                <div class="row g-2">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">RUC / ID</label>
-                        <input type="text" name="ruc" class="form-control">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Teléfono</label>
-                        <input type="text" name="telefono" class="form-control">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-control">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="submit" class="btn btn-success w-100">Guardar Proveedor</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block javascript %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ==========================================
-    // CONFIGURACIÓN E INICIALIZACIÓN
-    // ==========================================
     const urlBuscarProductos = "{% url 'buscar_productos_ajax' %}";
-    const urlBuscarProveedores = "{% url 'buscar_proveedores_ajax' %}"; // Asegúrate de tener esta URL
-    const formsetContainer = document.getElementById('detalle-compra-formset');
-    const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
-    const totalDisplay = document.getElementById('total-compra-display');
-    const mainModalEl = document.getElementById('modalAgregarCompra');
-    const mainModal = new bootstrap.Modal(mainModalEl);
-
-    // ==========================================
-    // 1. GESTIÓN DE MODALES (EVITAR CONFLICTOS)
-    // ==========================================
-    document.querySelector('.btn-add-ajax').addEventListener('click', function() {
-        const targetId = this.getAttribute('data-target');
-        const targetModalEl = document.querySelector(targetId);
-        const targetModal = new bootstrap.Modal(targetModalEl);
-
-        mainModal.hide(); // Ocultamos Compra
-        targetModal.show(); // Mostramos Proveedor
-
-        // Al cerrar Proveedor, reabrimos Compra
-        targetModalEl.addEventListener('hidden.bs.modal', function handler() {
-            mainModal.show();
-            targetModalEl.removeEventListener('hidden.bs.modal', handler);
-        });
-    });
-
-    // ==========================================
-    // 2. LÓGICA DE CÁLCULOS
-    // ==========================================
-    function calculateRow(row) {
-        const cant = parseFloat(row.querySelector('input[name$="cantidad"]').value) || 0;
-        const costo = parseFloat(row.querySelector('input[name$="costo_unitario"]').value) || 0;
-        const subtotal = cant * costo;
-        
-        row.querySelector('.subtotal').value = subtotal.toFixed(2);
-        updateTotalGlobal();
-    }
-
-    function updateTotalGlobal() {
-        let total = 0;
-        document.querySelectorAll('.detalle-form').forEach(row => {
-            if (row.style.display !== 'none') {
-                total += parseFloat(row.querySelector('.subtotal').value) || 0;
-            }
-        });
-        totalDisplay.textContent = '$' + total.toFixed(2);
-    }
-
-    // Event Delegation para Inputs de números
-    formsetContainer.addEventListener('input', function(e) {
-        if (e.target.matches('input[name$="cantidad"], input[name$="costo_unitario"]')) {
-            calculateRow(e.target.closest('tr'));
+    const urlBuscarProveedores = "{% url 'buscar_proveedores_ajax' %}"; 
+    
+    // --- 1. Inicializar Select2 del Proveedor (Ahora directamente al cargar) ---
+    $('#{{ compra_form.proveedor.id_for_label }}').select2({
+        theme: "bootstrap-5",
+        width: '100%',
+        placeholder: 'Buscar proveedor...',
+        ajax: {
+            url: urlBuscarProveedores,
+            dataType: 'json',
+            delay: 250,
+            data: params => ({ q: params.term }),
+            processResults: data => ({ results: data.results })
         }
     });
 
-    // ==========================================
-    // 3. INICIALIZACIÓN SELECT2 EN MODAL
-    // ==========================================
-    // NOTA: Select2 dentro de un modal necesita 'dropdownParent'
-    
-    // Función reutilizable para Productos
+    // --- 2. Función de Select2 para Productos ---
     function initProductSelect(element) {
         $(element).select2({
             theme: "bootstrap-5",
             width: '100%',
             placeholder: 'Buscar producto...',
-            dropdownParent: $('#modalAgregarCompra'), // CRUCIAL para que funcione en el modal
+            // Ya no necesitamos dropdownParent porque no estamos en modal
             ajax: {
                 url: urlBuscarProductos,
                 dataType: 'json',
@@ -275,13 +186,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 data: params => ({ q: params.term }),
                 processResults: data => ({ results: data.results })
             }
-        });
-
-        // Al seleccionar, autocompletar costo (si viene del backend)
-        $(element).on('select2:select', function(e) {
+        }).on('select2:select', function(e) {
             const data = e.params.data;
             const row = this.closest('tr');
-            // Si tu JSON de productos devuelve 'precio_compra' o 'costo'
             if(data.costo || data.precio_compra) {
                 row.querySelector('input[name$="costo_unitario"]').value = (data.costo || data.precio_compra);
             }
@@ -290,99 +197,73 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Inicialización al abrir el modal principal
-    mainModalEl.addEventListener('shown.bs.modal', function () {
-        // Proveedor
-        $('#id_proveedor').select2({
-            theme: "bootstrap-5",
-            width: '100%',
-            placeholder: 'Buscar proveedor...',
-            dropdownParent: $('#modalAgregarCompra'),
-            ajax: {
-                url: urlBuscarProveedores,
-                dataType: 'json',
-                delay: 250,
-                data: params => ({ q: params.term }),
-                processResults: data => ({ results: data.results })
+    // Inicializar select2 en filas existentes
+    $('.detalle-form select').each(function() { initProductSelect(this); });
+
+    // --- 3. Lógica de Cálculos (Igual que antes) ---
+    function calculateRow(row) {
+        const cant = parseFloat(row.querySelector('input[name$="cantidad"]').value) || 0;
+        const costo = parseFloat(row.querySelector('input[name$="costo_unitario"]').value) || 0;
+        const subtotal = cant * costo;
+        row.querySelector('.subtotal').value = subtotal.toFixed(2);
+        updateTotalHeader();
+    }
+
+    function updateTotalHeader() {
+        let total = 0;
+        document.querySelectorAll('.detalle-form').forEach(row => {
+            if (row.style.display !== 'none') {
+                total += parseFloat(row.querySelector('.subtotal').value) || 0;
             }
         });
+        document.getElementById('total-compra-header').textContent = 'Total: $' + total.toFixed(2);
+    }
 
-        // Productos existentes
-        $('.detalle-form select').each(function() {
-            initProductSelect(this);
-        });
-    });
-
-    // ==========================================
-    // 4. AGREGAR / ELIMINAR FILAS
-    // ==========================================
-    document.getElementById('add-row').addEventListener('click', function() {
-        const formCount = parseInt(totalFormsInput.value);
-        const emptyHtml = document.getElementById('empty-form').innerHTML.replace(/__prefix__/g, formCount);
-        formsetContainer.insertAdjacentHTML('beforeend', emptyHtml);
-        
-        // Inicializar Select2 en la nueva fila
-        const newRow = formsetContainer.lastElementChild;
-        initProductSelect(newRow.querySelector('select'));
-        
-        totalFormsInput.value = formCount + 1;
-    });
-
-    formsetContainer.addEventListener('click', function(e) {
-        if (e.target.closest('.delete-row')) {
-            const row = e.target.closest('tr');
-            const deleteInput = row.querySelector('input[name$="-DELETE"]');
-            
-            if (deleteInput) {
-                // Si es un formset con BD, marcamos DELETE
-                deleteInput.checked = true;
-                row.style.display = 'none';
-            } else {
-                // Si es JS puro
-                row.remove();
-            }
-            calculateRow(row); // Para actualizar el total global restando esta fila
+    document.getElementById('detalle-compra-formset').addEventListener('input', function(e) {
+        if (e.target.matches('input[name$="cantidad"], input[name$="costo_unitario"]')) {
+            calculateRow(e.target.closest('tr'));
         }
     });
 
-    // ==========================================
-    // 5. AJAX PARA NUEVO PROVEEDOR
-    // ==========================================
+    // --- 4. Agregar / Eliminar Filas ---
+    document.getElementById('add-row').addEventListener('click', function() {
+        const formCountInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        const count = parseInt(formCountInput.value);
+        const tmpl = document.getElementById('empty-form').innerHTML.replace(/__prefix__/g, count);
+        document.getElementById('detalle-compra-formset').insertAdjacentHTML('beforeend', tmpl);
+        
+        const newRow = document.getElementById('detalle-compra-formset').lastElementChild;
+        initProductSelect(newRow.querySelector('select'));
+        formCountInput.value = count + 1;
+    });
+
+    document.getElementById('detalle-compra-formset').addEventListener('click', function(e) {
+        if (e.target.closest('.delete-row')) {
+            const row = e.target.closest('tr');
+            const delInput = row.querySelector('input[name$="-DELETE"]');
+            if(delInput) { delInput.checked = true; row.style.display = 'none'; }
+            else { row.remove(); }
+            updateTotalHeader();
+        }
+    });
+
+    // --- 5. AJAX Proveedor (Modal Auxiliar) ---
     const formProv = document.getElementById('formProveedor');
     formProv.addEventListener('submit', function(e) {
         e.preventDefault();
-        const formData = new FormData(formProv);
-        
         fetch(formProv.action, {
             method: 'POST',
-            body: formData,
+            body: new FormData(formProv),
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Agregar al Select2 del modal principal
+        }).then(r => r.json()).then(data => {
+            if(data.status === 'success') {
                 const newOption = new Option(data.nombre, data.id, true, true);
-                $('#id_proveedor').append(newOption).trigger('change');
-                
-                // Cerrar modal proveedor (esto disparará el evento para reabrir Compra)
-                const modalProv = bootstrap.Modal.getInstance(document.getElementById('modalProveedor'));
-                modalProv.hide();
+                $('#{{ compra_form.proveedor.id_for_label }}').append(newOption).trigger('change');
+                bootstrap.Modal.getInstance(document.getElementById('modalProveedor')).hide();
                 formProv.reset();
-                
-                Swal.fire({
-                    icon: 'success', 
-                    title: 'Proveedor Guardado', 
-                    timer: 1500, 
-                    showConfirmButton: false,
-                    backdrop: false
-                });
-            } else {
-                Swal.fire('Error', 'Revisa los datos del proveedor', 'error');
             }
         });
     });
-
 });
 </script>
 {% endblock %}

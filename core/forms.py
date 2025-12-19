@@ -1,4 +1,5 @@
 from django import forms
+from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory, formset_factory, modelformset_factory
 from .models import *
 
@@ -49,6 +50,46 @@ class ClienteForm(forms.ModelForm):
             'telefono': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Teléfono'}),
             'direccion': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 1, 'placeholder': 'Dirección'}),
         }
+        def clean_dni(self):
+            dni = self.cleaned_data.get('dni')
+            if not dni:
+                return dni
+                
+            # Si longitud es 10 y es numérico, validar algoritmo Cédula
+            if len(dni) == 10 and dni.isdigit():
+                # Implementar lógica módulo 10 aquí (similar a JS)
+                # O usar una librería como 'python-stdnum'
+                if not self.validar_algoritmo_cedula(dni):
+                    raise ValidationError("La cédula ecuatoriana ingresada es inválida.")
+            
+            # Si no es 10 digitos, asumimos Pasaporte, solo verificamos longitud mínima
+            elif len(dni) < 5:
+                raise ValidationError("El documento es demasiado corto.")
+                
+            return dni
+
+        def validar_algoritmo_cedula(self, cedula):
+            # Lógica Python del algoritmo Módulo 10
+            coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2]
+            total = 0
+            try:
+                provincia = int(cedula[:2])
+                if not (1 <= provincia <= 24 or provincia == 30): return False
+                
+                tercer = int(cedula[2])
+                if tercer >= 6: return False # Solo validamos personas naturales estrictamente
+
+                for i in range(9):
+                    valor = int(cedula[i]) * coeficientes[i]
+                    total += (valor - 9) if valor >= 10 else valor
+                
+                decena = (total + 9) // 10 * 10
+                digito = decena - total
+                if digito == 10: digito = 0
+                
+                return digito == int(cedula[9])
+            except:
+                return False
 
 class ProveedorForm(forms.ModelForm):
     class Meta:
