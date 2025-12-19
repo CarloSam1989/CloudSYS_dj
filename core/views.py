@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404
 from .services import crear_nueva_venta
+from datetime import date
 from .sri_services import generar_clave_acceso, IVA_MAP
 from erp_project.celery import app
 from decimal import Decimal
@@ -453,27 +454,6 @@ def compras_view(request):
     return render(request, 'compras.html', context)
 
 @login_required
-def buscar_productos_ajax(request):
-    empresa_actual = request.user.perfil.empresa
-    search_term = request.GET.get('term', '')
-    
-    productos = Producto.objects.filter(
-        Q(nombre__icontains=search_term) | Q(codigo__icontains=search_term),
-        empresa=empresa_actual
-    )[:10]
-    
-    results = []
-    for producto in productos:
-        results.append({
-            'id': producto.id,
-            'text': f"{producto.nombre} ({producto.codigo}) - Stock: {producto.stock}",
-            'stock': producto.stock,
-            'precio_venta': producto.precio 
-        })
-
-    return JsonResponse({'results': results})
-
-@login_required
 def anular_compra_view(request, pk):
     empresa_actual = request.user.perfil.empresa
     compra = get_object_or_404(Compra, pk=pk, empresa=empresa_actual)
@@ -705,46 +685,153 @@ def crear_nueva_venta(factura_data, detalles_data, empresa, usuario):
 
 @login_required
 def ventas_view(request):
-    empresa_actual = request.user.perfil.empresa
+    empresa = request.user.perfil.empresa
     
+    # Configuración inicial del Formset
     if request.method == 'POST':
-        factura_form = FacturaForm(request.POST, empresa=empresa_actual)
-        detalle_formset = FacturaDetalleFormSet(request.POST, prefix='detalles')
-
+        factura_form = FacturaForm(request.POST, empresa=empresa)
+        detalle_formset = DetalleFacturaFormSet(request.POST)
+        
         if factura_form.is_valid() and detalle_formset.is_valid():
-            
-            detalles_validos = [form.cleaned_data for form in detalle_formset if form.has_changed() and form.cleaned_data.get('producto')]
+            try:
+                with transaction.atomic():
+                    # 1. Preparar la Cabecera (Factura)
+                    factura = factura_form.save(commit=False)
+                    factura.empresa = empresa
+                    factura.usuario = request.user
+                    
+                    # Generar Secuencial (Lógica simple basada en Punto de Venta)
+                    punto_venta = factura.punto_venta
+                    factura.secuencial = str(punto_venta.secuencial_factura).zfill(9)
+                    # Generar Clave de Acceso (Dummy por ahora, requerida por el modelo)
+                    import uuid
+                    factura.clave_acceso = str(uuid.uuid4())
+                    
+                    # Valores temporales para guardar y obtener ID (se recalculan abajo)
+                    factura.total_sin_impuestos = 0
+                    factura.importe_total = 0
+                    factura.save()
+                    
+                    # 2. Guardar Detalles y Actualizar Stock
+                    detalles = detalle_formset.save(commit=False)
+                    total_sin_impuestos = Decimal(0)
+                    
+                    for detalle in detalles:
+                        detalle.factura = factura
+                        detalle.precio_total_sin_impuesto = detalle.cantidad * detalle.precio_unitario
+                        detalle.save()
+                        
+                        total_sin_impuestos += detalle.precio_total_sin_impuesto
+                        
+                        # -- MOVIMIENTO DE INVENTARIO (DESCONTAR STOCK) --
+                        producto = detalle.producto
+                        producto.stock -= detalle.cantidad
+                        producto.save()
+                        
+                        MovimientoInventario.objects.create(
+                            empresa=empresa,
+                            producto=producto,
+                            tipo='S', # Salida
+                            cantidad=detalle.cantidad,
+                            detalle_factura=detalle
+                        )
+                    
+                    # Para manejar los eliminados en el formset
+                    for obj in detalle_formset.deleted_objects:
+                        obj.delete()
 
-            if not detalles_validos:
-                messages.error(request, "Error: La venta debe tener al menos un producto.")
-            else:
-                try:
-                    factura = crear_nueva_venta(
-                        factura_data=factura_form.cleaned_data,
-                        detalles_data=detalles_validos,
-                        empresa=empresa_actual,
-                        usuario=request.user
-                    )
-                    messages.success(request, f'Venta #{factura.secuencial} registrada exitosamente!')
-                    return redirect('ventas') # Asegúrate que esta URL exista
-                
-                except Exception as e:
-                    messages.error(request, f'Ocurrió un error inesperado al guardar la venta: {e}')
-        else:
-            errores = {**factura_form.errors, **detalle_formset.errors}
-            messages.error(request, f"Por favor, corrige los errores en el formulario: {errores}")
+                    # 3. Actualizar Totales Finales de la Factura
+                    # (Lógica simplificada de impuestos, ajustar según necesidad)
+                    iva_total = total_sin_impuestos * (empresa.iva_porcentaje / 100)
+                    factura.total_sin_impuestos = total_sin_impuestos
+                    factura.total_con_impuestos = {"iva": str(iva_total)} # JSON
+                    factura.importe_total = total_sin_impuestos + iva_total
+                    
+                    # Aumentar secuencial del punto de venta
+                    punto_venta.secuencial_factura += 1
+                    punto_venta.save()
+                    
+                    factura.save()
+                    
+                    return redirect('ventas') # Redirigir a la misma página (limpia)
+                    
+            except Exception as e:
+                print(f"Error en transacción: {e}")
+                # Aquí podrías agregar un mensaje de error al usuario
+    else:
+        factura_form = FacturaForm(empresa=empresa, initial={'fecha_emision': date.today()})
+        detalle_formset = DetalleFacturaFormSet()
 
-    # Lógica para la petición GET (no cambia)
-    factura_form = FacturaForm(empresa=empresa_actual)
-    detalle_formset = FacturaDetalleFormSet(prefix='detalles')
-    ventas = Factura.objects.filter(empresa=empresa_actual).order_by('-fecha_emision')
-    
+    # Obtener historial de ventas
+    ultimas_ventas = Factura.objects.filter(empresa=empresa).order_by('-id')[:10]
+
     context = {
-        'ventas': ventas,
         'factura_form': factura_form,
         'detalle_formset': detalle_formset,
+        'ventas': ultimas_ventas
     }
-    return render(request, 'ventas.html', context) 
+    return render(request, 'core/ventas.html', context)
+
+# --- VISTAS AJAX (JSON) ---
+
+@login_required
+def buscar_productos_ajax(request):
+    """ Busca productos por nombre o código para el Select2 """
+    query = request.GET.get('q', '')
+    empresa = request.user.perfil.empresa
+    
+    productos = Producto.objects.filter(
+        Q(nombre__icontains=query) | Q(codigo__icontains=query),
+        empresa=empresa,
+        activo=True
+    )[:20] # Limitar resultados
+    
+    results = []
+    for p in productos:
+        results.append({
+            'id': p.id,
+            'text': f"{p.codigo} - {p.nombre}", # Lo que ve el usuario
+            'precio': str(p.precio),            # Datos extra para JS
+            'stock': str(p.stock)
+        })
+    
+    return JsonResponse({'results': results})
+
+@login_required
+def buscar_clientes_ajax(request):
+    """ Busca clientes para el Select2 """
+    query = request.GET.get('q', '')
+    empresa = request.user.perfil.empresa
+    
+    clientes = Cliente.objects.filter(
+        Q(nombre__icontains=query) | Q(ruc__icontains=query),
+        empresa=empresa
+    )[:20]
+    
+    results = [{'id': c.id, 'text': c.nombre} for c in clientes]
+    return JsonResponse({'results': results})
+
+@login_required
+def agregar_cliente_ajax(request):
+    if request.method == 'POST':
+        form = ClienteAjaxForm(request.POST)
+        if form.is_valid():
+            cliente = form.save(commit=False)
+            cliente.empresa = request.user.perfil.empresa
+            cliente.save()
+            return JsonResponse({'status': 'success', 'id': cliente.id, 'text': cliente.nombre})
+    return JsonResponse({'status': 'error'})
+
+@login_required
+def agregar_metodo_pago_ajax(request):
+    if request.method == 'POST':
+        form = MetodoPagoAjaxForm(request.POST)
+        if form.is_valid():
+            metodo = form.save(commit=False)
+            metodo.empresa = request.user.perfil.empresa
+            metodo.save()
+            return JsonResponse({'status': 'success', 'id': metodo.id, 'text': metodo.nombre})
+    return JsonResponse({'status': 'error'})
 
 @login_required
 def anular_venta_view(request, pk):
@@ -768,42 +855,6 @@ def anular_venta_view(request, pk):
     
     return redirect('ventas')
 
-@login_required
-def buscar_clientes_ajax(request):
-    empresa_actual = request.user.perfil.empresa
-    search_term = request.GET.get('term', '')
-    
-    clientes = Cliente.objects.filter(
-        Q(nombre__icontains=search_term) | Q(ruc__icontains=search_term),
-        empresa=empresa_actual
-    )[:10]
-    
-    results = [{'id': cliente.id, 'text': f"{cliente.nombre} - {cliente.ruc}"} for cliente in clientes]
-    return JsonResponse({'results': results})
-
-@login_required
-def agregar_cliente_ajax(request):
-    if request.method == 'POST':
-        form = ClienteForm(request.POST)
-        if form.is_valid():
-            cliente = form.save(commit=False)
-            cliente.empresa = request.user.perfil.empresa
-            cliente.save()
-            return JsonResponse({'status': 'success', 'id': cliente.id, 'text': f"{cliente.nombre} - {cliente.ruc}"})
-        return JsonResponse({'status': 'error', 'errors': form.errors})
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido'})
-
-@login_required
-def agregar_metodo_pago_ajax(request):
-    if request.method == 'POST':
-        form = MetodoPagoForm(request.POST)
-        if form.is_valid():
-            metodo = form.save(commit=False)
-            metodo.empresa = request.user.perfil.empresa
-            metodo.save()
-            return JsonResponse({'status': 'success', 'id': metodo.id, 'nombre': metodo.nombre})
-        return JsonResponse({'status': 'error', 'errors': form.errors})
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido'})
 
 @login_required
 def anular_venta_view(request, pk):
