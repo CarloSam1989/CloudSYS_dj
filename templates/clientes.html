@@ -11,27 +11,61 @@
             <li class="breadcrumb-item active">Clientes</li>
         </ol>
 
+        
         <div class="card mb-4">
-            <div class="card-header"><i class="fas fa-user-plus me-1"></i>Añadir Nuevo Cliente</div>
+            <div class="card-header">
+                <i class="fas fa-user-plus me-1"></i>
+                Añadir Nuevo Cliente
+            </div>
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
                     <div class="row">
-                        <div class="col-md-6 mb-3">{{ form.nombre.label_tag }} {{ form.nombre }}</div>
-                        <div class="col-md-6 mb-3">{{ form.ruc.label_tag }} {{ form.ruc }}</div>
-                        <div class="col-md-6 mb-3">{{ form.email.label_tag }} {{ form.email }}</div>
-                        <div class="col-md-6 mb-3">{{ form.telefono.label_tag }} {{ form.telefono }}</div>
-                        <div class="col-12 mb-3">{{ form.direccion.label_tag }} {{ form.direccion }}</div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ form.nombre.label }}</label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ form.ruc.label }}</label>
+                            {{ form.ruc }}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ form.email.label }}</label>
+                            {{ form.email }}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ form.telefono.label }}</label>
+                            {{ form.telefono }}
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">{{ form.direccion.label }}</label>
+                            {{ form.direccion }}
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+                    
+                    <div class="mt-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Guardar Cliente
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
 
         <div class="card mb-4">
-            <div class="card-header"><i class="fas fa-users me-1"></i>Lista de Clientes</div>
+            <div class="card-header">
+                <i class="fas fa-users me-1"></i>
+                Lista de Clientes existentes
+            </div>
             <div class="card-body">
-                <table id="datatablesSimple">
+                <table id="datatablesSimple" class="table table-striped">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -49,8 +83,14 @@
                             <td>{{ cliente.email }}</td>
                             <td>{{ cliente.telefono }}</td>
                             <td>
-                                <a href="#" class="btn btn-sm btn-warning">Editar</a>
+                                <a href="#" class="btn btn-sm btn-warning" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
                             </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No hay clientes registrados aún.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
