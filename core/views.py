@@ -1625,7 +1625,7 @@ def gestion_cajas_view(request):
                 responsable=usuario_responsable,
                 saldo_actual=0 # Inicia en 0
             )
-            return redirect('gestion_cajas') # Recarga la página limpia
+            return redirect('caja_detail') # Recarga la página limpia
 
     # Contexto para el GET
     cajas = CajaChica.objects.filter(empresa=empresa_actual, activo=True)
