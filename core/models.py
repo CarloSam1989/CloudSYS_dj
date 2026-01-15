@@ -574,22 +574,17 @@ class AbonoPrestamo(models.Model):
         return f"Abono ${self.total_pagado} ({self.fecha_pago.strftime('%Y-%m-%d')})"
     
 class CuentaBancaria(models.Model):
-    TIPO_CUENTA = [
-        ('AH', 'Ahorros'),
-        ('CTE', 'Corriente'),
-        ('INV', 'Inversión / Plazo Fijo'),
-    ]
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, null=True, blank=True)
     
-    # Relación: Un cliente puede tener MUCHAS cuentas
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='cuentas_bancarias')
+    banco = models.CharField(max_length=100, verbose_name="Nombre del Banco") # Ej: Pichincha
     numero_cuenta = models.CharField(max_length=20, unique=True)
-    tipo = models.CharField(max_length=3, choices=TIPO_CUENTA, default='AH')
+    tipo = models.CharField(max_length=3, choices=[('AH', 'Ahorros'), ('CTE', 'Corriente')])
     saldo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
-    fecha_apertura = models.DateField(auto_now_add=True)
     activa = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.get_tipo_display()} - {self.numero_cuenta} ({self.cliente.nombre})"
+        return f"{self.banco} - {self.numero_cuenta}"
 
 # Y necesitas registrar las transacciones de esas cuentas
 class TransaccionBancaria(models.Model):

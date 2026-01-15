@@ -1,220 +1,178 @@
 {% extends 'base.html' %}
-
-{% block title %}Gestión de Cajas{% endblock %}
+{% load humanize %} {% block title %}Tesorería - Cuentas Bancarias{% endblock %}
 
 {% block content %}
 <main>
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
-            <h2 class="h4">Tesorería / Cajas Chicas</h2>
+            <h2 class="h4"><i class="fas fa-university me-2 text-primary"></i>Cuentas Bancarias</h2>
             <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a href="#">Dashboard</a></li>
-                <li class="breadcrumb-item active">Cajas</li>
+                <li class="breadcrumb-item active">Bancos</li>
             </ol>
         </div>
 
         <div class="card mb-4 shadow-sm border-0 border-top border-4 border-primary">
             <div class="card-header py-2 bg-white">
-                <small class="fw-bold text-primary"><i class="fas fa-wallet me-1"></i> Nueva Caja Chica</small>
+                <small class="fw-bold text-primary"><i class="fas fa-plus-circle me-1"></i> Registrar Nueva Cuenta</small>
             </div>
             <div class="card-body p-3">
-                <form method="post">
+                <form method="post" action="{% url 'core:gestion_cuentas' %}">
                     {% csrf_token %}
                     <div class="row g-2 align-items-end">
                         
-                        <div class="col-md-5">
-                            <label class="form-label small mb-1 fw-bold text-muted">Nombre Identificador</label>
-                            <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej: Caja Principal, Caja Ventas 1..." required>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1 fw-bold text-muted">Institución Financiera</label>
+                            <input type="text" name="banco" class="form-control form-control-sm" placeholder="Ej: Banco Pichincha" required>
                         </div>
 
-                        <div class="col-md-4">
-                            <label class="form-label small mb-1 fw-bold text-muted">Custodio / Responsable</label>
-                            <select name="responsable" class="form-select form-select-sm" required>
-                                <option value="" selected disabled>-- Seleccione Usuario --</option>
-                                {% for usuario in usuarios %}
-                                    <option value="{{ usuario.id }}">{{ usuario.username }} ({{ usuario.get_full_name }})</option>
-                                {% endfor %}
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1 fw-bold text-muted">Tipo</label>
+                            <select name="tipo" class="form-select form-select-sm" required>
+                                <option value="CTE">Corriente</option>
+                                <option value="AH">Ahorros</option>
                             </select>
                         </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1 fw-bold text-muted">Número de Cuenta</label>
+                            <input type="text" name="numero" class="form-control form-control-sm" placeholder="Ej: 2100458..." required>
+                        </div>
                         
-                        <div class="col-md-3 text-end">
-                            <button type="submit" class="btn btn-primary btn-sm px-4 w-100">
-                                <i class="fas fa-save me-1"></i> Crear Caja
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1 fw-bold text-muted">Saldo Inicial</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" name="saldo_inicial" class="form-control" value="0.00">
+                            </div>
+                        </div>
+
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="fas fa-save me-1"></i> Guardar
                             </button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
+
         <div class="row">
-            {% for caja in cajas %}
-            <div class="col-md-4 mb-4">
-                <div class="card shadow-sm h-100 border-start border-5 {% if caja.activo %}border-success{% else %}border-danger{% endif %}">
-                    <div class="card-body position-relative">
+            {% for cuenta in cuentas %}
+            <div class="col-md-6 col-xl-4 mb-4">
+                <div class="card shadow h-100 text-white {% if cuenta.tipo == 'CTE' %}bg-primary bg-gradient{% else %}bg-success bg-gradient{% endif %}" style="border-radius: 15px;">
+                    <div class="card-body position-relative p-4">
                         
-                        <div class="dropdown position-absolute top-0 end-0 mt-2 me-2">
-                            <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-ellipsis-v"></i>
+                        <div class="dropdown position-absolute top-0 end-0 mt-3 me-3">
+                            <button class="btn btn-sm btn-light rounded-circle shadow-sm" type="button" data-bs-toggle="dropdown" style="width: 30px; height: 30px; padding: 0;">
+                                <i class="fas fa-ellipsis-v text-dark"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                {% if caja.activo %}
                                 <li>
                                     <a class="dropdown-item small" href="#" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#modalEditarCaja"
-                                    data-id="{{ caja.id }}"
-                                    data-nombre="{{ caja.nombre }}"
-                                    data-responsable="{{ caja.responsable.id }}"
-                                    onclick="cargarDatosModal(this)">
-                                        <i class="fas fa-edit text-warning me-2"></i>Editar
+                                       data-bs-toggle="modal" 
+                                       data-bs-target="#modalEditarCuenta"
+                                       data-id="{{ cuenta.id }}"
+                                       data-banco="{{ cuenta.banco }}"
+                                       data-numero="{{ cuenta.numero_cuenta }}"
+                                       data-tipo="{{ cuenta.tipo }}"
+                                       onclick="cargarDatosCuenta(this)">
+                                        <i class="fas fa-edit text-warning me-2"></i>Editar Datos
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item small text-secondary" href="{% url 'caja_cerrar' caja.id %}" onclick="return confirm('¿Estás seguro de CERRAR esta caja? No podrás registrar más movimientos.')">
-                                        <i class="fas fa-lock me-2"></i>Cerrar Caja
-                                    </a>
-                                </li>
-                                {% else %}
-                                <li><span class="dropdown-item-text small text-muted">Caja Cerrada</span></li>
-                                {% endif %}
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item small text-danger" href="{% url 'caja_eliminar' caja.id %}" onclick="return confirm('¡PELIGRO! ¿Eliminar permanentemente esta caja? Si tiene dinero registrado, dará error.')">
+                                    <a class="dropdown-item small text-danger" href="{% url 'core:eliminar_cuenta' cuenta.id %}" onclick="return confirm('¿Eliminar esta cuenta bancaria?')">
                                         <i class="fas fa-trash me-2"></i>Eliminar
                                     </a>
                                 </li>
                             </ul>
                         </div>
 
-                        <h5 class="card-title text-dark fw-bold mb-0">{{ caja.nombre }}</h5>
-                        <span class="badge bg-light text-dark border mt-1">
-                            <i class="fas fa-user-shield me-1"></i> {{ caja.responsable.username }}
-                        </span>
-                        
-                        <div class="my-3 text-center py-2 bg-light rounded-3">
-                            <span class="display-6 fw-bold {% if caja.saldo_actual >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                ${{ caja.saldo_actual }}
-                            </span>
-                            <p class="small text-muted mb-0">Saldo Actual</p>
+                        <div class="d-flex justify-content-between align-items-start mb-4">
+                            <div>
+                                <h5 class="card-title fw-bold mb-0"><i class="fas fa-university me-2"></i>{{ cuenta.banco }}</h5>
+                                <span class="badge bg-white text-dark mt-1 bg-opacity-75">
+                                    {{ cuenta.get_tipo_display }}
+                                </span>
+                            </div>
+                            <i class="fab fa-cc-visa fa-2x opacity-50"></i>
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <a href="{% url 'caja_detail' caja.id %}" class="btn btn-outline-primary btn-sm">
+                        <div class="text-center my-3">
+                            <p class="mb-0 opacity-75 small text-uppercase ls-1">Saldo Disponible</p>
+                            <h2 class="display-6 fw-bold mb-0">${{ cuenta.saldo }}</h2>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center">
+                            <div class="small opacity-75 font-monospace">
+                                **** {{ cuenta.numero_cuenta|slice:"-4:" }}
+                            </div>
+                            <a href="{% url 'core:cuenta_movimientos' cuenta.id %}" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3">
                                 Ver Movimientos <i class="fas fa-arrow-right ms-1"></i>
                             </a>
                         </div>
-                    </div>
-                    <div class="card-footer bg-white text-muted small d-flex justify-content-between">
-                        <span>
-                            {% if caja.activo %}
-                                <span class="badge bg-success">Activa</span>
-                            {% else %}
-                                <span class="badge bg-danger">Cerrada: {{ caja.fecha_cierre|date:"d/m/Y" }}</span>
-                            {% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        <div class="modal fade" id="modalEditarCaja" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning text-dark">
-                        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Caja</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <form id="formEditarCaja" method="POST" action="">
-                        {% csrf_token %}
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">Nombre de la Caja</label>
-                                <input type="text" name="nombre" id="inputNombreEditar" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Responsable</label>
-                                <select name="responsable" id="selectResponsableEditar" class="form-select" required>
-                                    {% for usuario in usuarios %}
-                                        <option value="{{ usuario.id }}">{{ usuario.username }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-warning">Guardar Cambios</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            function cargarDatosModal(elemento) {
-                // 1. Obtener datos del botón presionado
-                var id = elemento.getAttribute('data-id');
-                var nombre = elemento.getAttribute('data-nombre');
-                var responsable = elemento.getAttribute('data-responsable');
-
-                // 2. Rellenar el formulario del modal
-                document.getElementById('inputNombreEditar').value = nombre;
-                document.getElementById('selectResponsableEditar').value = responsable;
-
-                // 3. Actualizar la URL del formulario para que apunte al ID correcto
-                // OJO: Ajusta '/finanzas/cajas/' si tu URL base es diferente
-                var actionUrl = "/finanzas/cajas/" + id + "/editar/"; 
-                document.getElementById('formEditarCaja').action = actionUrl;
-            }
-        </script>
-        <div class="row">
-            {% for caja in cajas %}
-            <div class="col-md-4 mb-4">
-                <div class="card shadow-sm h-100 border-start border-5 {% if caja.saldo_actual > 0 %}border-success{% else %}border-secondary{% endif %}">
-                    <div class="card-body position-relative">
-                        <div class="dropdown position-absolute top-0 end-0 mt-2 me-2">
-                            <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item small" href="#">Editar</a></li>
-                                <li><a class="dropdown-item small text-danger" href="#">Cerrar Caja</a></li>
-                            </ul>
-                        </div>
-
-                        <h5 class="card-title text-dark fw-bold mb-0">{{ caja.nombre }}</h5>
-                        <span class="badge bg-light text-dark border mt-1">
-                            <i class="fas fa-user-shield me-1"></i> {{ caja.responsable.username }}
-                        </span>
-                        
-                        <div class="my-4 text-center py-2 bg-light rounded-3">
-                            <p class="small text-muted mb-0 text-uppercase ls-1">Saldo Disponible</p>
-                            <span class="display-6 fw-bold {% if caja.saldo_actual > 0 %}text-success{% else %}text-muted{% endif %}">
-                                ${{ caja.saldo_actual }}
-                            </span>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <a href="#" class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-list-ul me-1"></i> Ver Movimientos
-                            </a>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-white text-muted small d-flex justify-content-between">
-                        <span>Estado: {% if caja.activo %}<span class="text-success fw-bold">Activa</span>{% else %}<span class="text-danger">Cerrada</span>{% endif %}</span>
-                        <span title="Última actualización"><i class="far fa-clock"></i> Hoy</span>
                     </div>
                 </div>
             </div>
             {% empty %}
             <div class="col-12">
-                <div class="alert alert-warning d-flex align-items-center" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <div>No hay cajas chicas registradas en el sistema. Utiliza el formulario superior para crear la primera.</div>
+                <div class="alert alert-info py-5 text-center">
+                    <i class="fas fa-piggy-bank fa-3x mb-3 text-muted"></i>
+                    <h5>No tienes cuentas bancarias registradas.</h5>
+                    <p class="text-muted">Registra tu primera cuenta para controlar la tesorería.</p>
                 </div>
             </div>
             {% endfor %}
         </div>
     </div>
 </main>
+
+<div class="modal fade" id="modalEditarCuenta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Editar Cuenta Bancaria</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditarCuenta" method="POST" action="">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Banco</label>
+                        <input type="text" name="banco" id="editBanco" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Número de Cuenta</label>
+                        <input type="text" name="numero" id="editNumero" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Cuenta</label>
+                        <select name="tipo" id="editTipo" class="form-select">
+                            <option value="CTE">Corriente</option>
+                            <option value="AH">Ahorros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function cargarDatosCuenta(btn) {
+        // Llenar modal
+        document.getElementById('editBanco').value = btn.getAttribute('data-banco');
+        document.getElementById('editNumero').value = btn.getAttribute('data-numero');
+        document.getElementById('editTipo').value = btn.getAttribute('data-tipo');
+        
+        // Actualizar Action del Form
+        let id = btn.getAttribute('data-id');
+        // Ajusta la URL base según tu configuración real
+        document.getElementById('formEditarCuenta').action = "/finanzas/cuentas/" + id + "/editar/";
+    }
+</script>
 {% endblock %}

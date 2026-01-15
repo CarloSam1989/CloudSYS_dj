@@ -1555,75 +1555,59 @@ def buscar_productos_venta_ajax(request):
     
     return JsonResponse({'results': data})
 
-def gestion_cajas_view(request):
-    # Obtener empresa del usuario actual (asumiendo lógica de Perfil)
-    empresa_actual = request.user.perfil.empresa 
+def gestion_cuentas_view(request):
+    empresa_actual = request.user.perfil.empresa
     
     if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        responsable_id = request.POST.get('responsable')
+        banco = request.POST.get('banco')
+        numero = request.POST.get('numero')
+        tipo = request.POST.get('tipo')
+        saldo_inicial = request.POST.get('saldo_inicial', 0)
         
-        if nombre and responsable_id:
-            usuario_responsable = User.objects.get(id=responsable_id)
-            CajaChica.objects.create(
+        if banco and numero:
+            CuentaBancaria.objects.create(
                 empresa=empresa_actual,
-                nombre=nombre,
-                responsable=usuario_responsable,
-                saldo_actual=0 # Inicia en 0
+                banco=banco,
+                numero_cuenta=numero,
+                tipo=tipo,
+                saldo=saldo_inicial,
+                activa=True
             )
-            return redirect('caja_list') # Recarga la página limpia
-
-    # Contexto para el GET
-    cajas = CajaChica.objects.filter(empresa=empresa_actual, activo=True)
-    usuarios = User.objects.filter(perfil__empresa=empresa_actual) # Solo usuarios de la misma empresa
+            messages.success(request, 'Cuenta bancaria registrada exitosamente.')
+            return redirect('core:gestion_cuentas')
     
-    return render(request, 'finanzas/caja_list.html', {
-        'cajas': cajas,
-        'usuarios': usuarios
+    # Listar solo las de esta empresa
+    cuentas = CuentaBancaria.objects.filter(empresa=empresa_actual, activa=True)
+    
+    return render(request, 'finanzas/gestion_cuentas.html', { # Asegúrate de guardar el template con este nombre
+        'cuentas': cuentas
     })
 
-# 1. VISTA EDITAR
-def editar_caja_view(request, pk):
-    caja = get_object_or_404(CajaChica, pk=pk)
+# VISTA EDITAR
+def editar_cuenta_view(request, pk):
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
     
     if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        responsable_id = request.POST.get('responsable')
-        
-        if nombre and responsable_id:
-            caja.nombre = nombre
-            caja.responsable_id = responsable_id
-            caja.save()
-            messages.success(request, f'Caja "{caja.nombre}" actualizada correctamente.')
-        else:
-            messages.error(request, 'Todos los campos son obligatorios.')
-            
-    # Redirige a tu lista de cajas (ajusta el nombre si en tu url se llama diferente)
-    return redirect('caja_list') 
+        cuenta.banco = request.POST.get('banco')
+        cuenta.numero_cuenta = request.POST.get('numero')
+        cuenta.tipo = request.POST.get('tipo')
+        cuenta.save()
+        messages.success(request, 'Datos de la cuenta actualizados.')
+    
+    return redirect('core:gestion_cuentas')
 
-# 2. VISTA CERRAR (Arqueo final)
-def cerrar_caja_view(request, pk):
-    caja = get_object_or_404(CajaChica, pk=pk)
-    
-    # Lógica: Solo cerramos si está activa
-    if caja.activo:
-        caja.activo = False
-        caja.fecha_cierre = timezone.now() # Fecha de hoy
-        caja.save()
-        messages.warning(request, f'La caja "{caja.nombre}" ha sido CERRADA. No podrá registrar nuevos movimientos.')
-    
-    return redirect('caja_list')
+# VISTA ELIMINAR (O DESACTIVAR)
+def eliminar_cuenta_view(request, pk):
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
+    # Sugerencia: Mejor desactivar que borrar si hay historial
+    cuenta.activa = False 
+    cuenta.save()
+    messages.warning(request, 'Cuenta bancaria desactivada.')
+    return redirect('core:gestion_cuentas')
 
-# 3. VISTA ELIMINAR
-def eliminar_caja_view(request, pk):
-    caja = get_object_or_404(CajaChica, pk=pk)
-    
-    try:
-        nombre_temp = caja.nombre
-        caja.delete()
-        messages.success(request, f'La caja "{nombre_temp}" fue eliminada permanentemente.')
-    except Exception as e:
-        # Esto pasa si la caja tiene movimientos vinculados (Protección de base de datos)
-        messages.error(request, f'No se puede eliminar "{caja.nombre}" porque tiene movimientos registrados. Mejor opta por CERRARLA.')
-    
-    return redirect('caja_list')
+# VISTA MOVIMIENTOS (Placeholder)
+def cuenta_movimientos_view(request, pk):
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
+    # Aquí necesitarías un modelo TransaccionBancaria vinculado a la cuenta
+    # movimientos = cuenta.transacciones.all().order_by('-fecha')
+    return render(request, 'finanzas/cuenta_movimientos.html', {'cuenta': cuenta})
