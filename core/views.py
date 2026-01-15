@@ -1631,7 +1631,7 @@ def gestion_cajas_view(request):
     cajas = CajaChica.objects.filter(empresa=empresa_actual, activo=True)
     usuarios = User.objects.filter(perfil__empresa=empresa_actual) # Solo usuarios de la misma empresa
     
-    return render(request, 'core/templates/caja/gestion_cajas.html', {
+    return render(request, 'finanzas/caja_list.html', {
         'cajas': cajas,
         'usuarios': usuarios
     })
