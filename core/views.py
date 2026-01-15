@@ -1574,12 +1574,12 @@ def gestion_cuentas_view(request):
                 activa=True
             )
             messages.success(request, 'Cuenta bancaria registrada exitosamente.')
-            return redirect('core:gestion_cuentas')
+            return redirect('caja_list')
     
     # Listar solo las de esta empresa
     cuentas = CuentaBancaria.objects.filter(empresa=empresa_actual, activa=True)
     
-    return render(request, 'finanzas/gestion_cuentas.html', { # Asegúrate de guardar el template con este nombre
+    return render(request, 'finanzas/caja_list.html', { # Asegúrate de guardar el template con este nombre
         'cuentas': cuentas
     })
 
