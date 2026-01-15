@@ -1608,3 +1608,30 @@ def buscar_productos_venta_ajax(request):
             })
     
     return JsonResponse({'results': data})
+
+def gestion_cajas_view(request):
+    # Obtener empresa del usuario actual (asumiendo lógica de Perfil)
+    empresa_actual = request.user.perfil.empresa 
+    
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        responsable_id = request.POST.get('responsable')
+        
+        if nombre and responsable_id:
+            usuario_responsable = User.objects.get(id=responsable_id)
+            CajaChica.objects.create(
+                empresa=empresa_actual,
+                nombre=nombre,
+                responsable=usuario_responsable,
+                saldo_actual=0 # Inicia en 0
+            )
+            return redirect('gestion_cajas') # Recarga la página limpia
+
+    # Contexto para el GET
+    cajas = CajaChica.objects.filter(empresa=empresa_actual, activo=True)
+    usuarios = User.objects.filter(perfil__empresa=empresa_actual) # Solo usuarios de la misma empresa
+    
+    return render(request, 'core/templates/caja/gestion_cajas.html', {
+        'cajas': cajas,
+        'usuarios': usuarios
+    })
