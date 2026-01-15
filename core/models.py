@@ -576,8 +576,7 @@ class AbonoPrestamo(models.Model):
 class CuentaBancaria(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True)
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, null=True, blank=True)
-    
-    banco = models.CharField(max_length=100, verbose_name="Nombre del Banco") # Ej: Pichincha
+    banco = models.CharField(max_length=100, default='Banco General', verbose_name="Nombre del Banco")
     numero_cuenta = models.CharField(max_length=20, unique=True)
     tipo = models.CharField(max_length=3, choices=[('AH', 'Ahorros'), ('CTE', 'Corriente')])
     saldo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
