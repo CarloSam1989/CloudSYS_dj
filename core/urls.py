@@ -66,7 +66,7 @@ urlpatterns = [
     path('ajax/cambiar-estado-cotizacion/', views.cambiar_estado_cotizacion_ajax, name='ajax_cambiar_estado_cotizacion'),
     path('cotizaciones/<int:cotizacion_id>/pdf/', views.generar_cotizacion_pdf, name='cotizacion_pdf'),
     # GESTIÓN DE CUENTAS BANCARIAS
-    path('finanzas/cuentas/', views.gestion_cuentas_view, name='gestion_cuentas'),
+    path('finanzas/cuentas/', views.gestion_cuentas_view, name='caja_list'),
     path('finanzas/cuentas/<int:pk>/editar/', views.editar_cuenta_view, name='editar_cuenta'),
     path('finanzas/cuentas/<int:pk>/eliminar/', views.eliminar_cuenta_view, name='eliminar_cuenta'),
     path('finanzas/cuentas/<int:pk>/movimientos/', views.cuenta_movimientos_view, name='cuenta_movimientos'),
