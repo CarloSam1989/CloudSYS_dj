@@ -199,9 +199,6 @@ def dashboard_view(request):
 # ------------------------------
 # VISTAS DE MÓDULOS (PLACEHOLDERS)
 # ------------------------------
-@login_required
-def inventario_view(request):
-    return render(request, 'base.html') # Temporalmente muestra la base
 
 @login_required
 def proveedores_view(request):
@@ -855,30 +852,6 @@ def anular_venta_view(request, pk):
     
     return redirect('ventas')
 
-
-@login_required
-def anular_venta_view(request, pk):
-    empresa_actual = request.user.perfil.empresa
-    venta = get_object_or_404(Factura, pk=pk, empresa=empresa_actual)
-
-    if venta.estado_pago != 'N': # 'N' es Anulada
-        try:
-            with transaction.atomic():
-                venta.estado_pago = 'N'
-                venta.save()
-                # Devolver el stock de los productos
-                for detalle in venta.detalles.all():
-                    producto = detalle.producto
-                    producto.stock += detalle.cantidad
-                    producto.save()
-            messages.success(request, f'Venta #{venta.secuencial} anulada y stock restaurado.')
-        except Exception as e:
-            messages.error(request, f'Error al anular la venta: {e}')
-    else:
-        messages.warning(request, 'Esta venta ya se encuentra anulada.')
-    
-    return redirect('ventas')
-
 @login_required
 def venta_pdf_view(request, pk):
     empresa_actual = request.user.perfil.empresa
@@ -1289,29 +1262,6 @@ def cotizaciones(request):
         'cotizaciones': cotizaciones_list
     })
 
-def buscar_productos_venta_ajax(request):
-    """
-    AJAX: Busca productos y retorna PRECIO DE VENTA (no costo).
-    """
-    query = request.GET.get('q', '')
-    data = []
-    
-    if query:
-        # Filtra por nombre o código
-        qs = Producto.objects.filter(
-            Q(nombre__icontains=query) | Q(codigo__icontains=query)
-        ).values('id', 'codigo', 'nombre', 'precio', 'stock')[:20]
-
-        for p in qs:
-            data.append({
-                'id': p['id'],
-                'text': f"{p['codigo']} - {p['nombre']} (Stock: {p['stock']})",
-                'precio': float(p['precio']), # Retornamos PVP
-                'stock': p['stock']
-            })
-    
-    return JsonResponse({'results': data})
-
 def buscar_clientes_ajax(request):
     """AJAX: Busca clientes para el Select2"""
     query = request.GET.get('q', '')
@@ -1547,10 +1497,6 @@ def generar_cotizacion_pdf(request, cotizacion_id):
     except Cotizacion.DoesNotExist:
         return HttpResponse("Cotización no encontrada.", status=404)
     
-def caja_chica_list(request):
-    cajas = CajaChica.objects.all()
-    return render(request, 'finanzas/caja_list.html', {'cajas': cajas})
-
 def caja_chica_detail(request, pk):
     caja = get_object_or_404(CajaChica, pk=pk)
     return render(request, 'finanzas/caja_detail.html', {'caja': caja})
@@ -1635,3 +1581,49 @@ def gestion_cajas_view(request):
         'cajas': cajas,
         'usuarios': usuarios
     })
+
+# 1. VISTA EDITAR
+def editar_caja_view(request, pk):
+    caja = get_object_or_404(CajaChica, pk=pk)
+    
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        responsable_id = request.POST.get('responsable')
+        
+        if nombre and responsable_id:
+            caja.nombre = nombre
+            caja.responsable_id = responsable_id
+            caja.save()
+            messages.success(request, f'Caja "{caja.nombre}" actualizada correctamente.')
+        else:
+            messages.error(request, 'Todos los campos son obligatorios.')
+            
+    # Redirige a tu lista de cajas (ajusta el nombre si en tu url se llama diferente)
+    return redirect('caja_list') 
+
+# 2. VISTA CERRAR (Arqueo final)
+def cerrar_caja_view(request, pk):
+    caja = get_object_or_404(CajaChica, pk=pk)
+    
+    # Lógica: Solo cerramos si está activa
+    if caja.activo:
+        caja.activo = False
+        caja.fecha_cierre = timezone.now() # Fecha de hoy
+        caja.save()
+        messages.warning(request, f'La caja "{caja.nombre}" ha sido CERRADA. No podrá registrar nuevos movimientos.')
+    
+    return redirect('caja_list')
+
+# 3. VISTA ELIMINAR
+def eliminar_caja_view(request, pk):
+    caja = get_object_or_404(CajaChica, pk=pk)
+    
+    try:
+        nombre_temp = caja.nombre
+        caja.delete()
+        messages.success(request, f'La caja "{nombre_temp}" fue eliminada permanentemente.')
+    except Exception as e:
+        # Esto pasa si la caja tiene movimientos vinculados (Protección de base de datos)
+        messages.error(request, f'No se puede eliminar "{caja.nombre}" porque tiene movimientos registrados. Mejor opta por CERRARLA.')
+    
+    return redirect('caja_list')

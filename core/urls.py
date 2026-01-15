@@ -69,6 +69,9 @@ urlpatterns = [
     # RUTAS DE FINANZAS: CAJA CHICA
     # ==========================================
     path('finanzas/cajas/', views.gestion_cajas_view, name='caja_list'),
+    path('finanzas/cajas/<int:pk>/editar/', views.editar_caja_view, name='caja_editar'),
+    path('finanzas/cajas/<int:pk>/cerrar/', views.cerrar_caja_view, name='caja_cerrar'),
+    path('finanzas/cajas/<int:pk>/eliminar/', views.eliminar_caja_view, name='caja_eliminar'),
     path('finanzas/cajas/<int:pk>/', views.caja_chica_detail, name='caja_detail'),
     path('finanzas/cajas/<int:pk>/movimiento/', views.registrar_movimiento_caja, name='caja_movimiento'),
     # ==========================================

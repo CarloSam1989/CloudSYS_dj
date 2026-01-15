@@ -46,7 +46,127 @@
                 </form>
             </div>
         </div>
+        <div class="row">
+            {% for caja in cajas %}
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm h-100 border-start border-5 {% if caja.activo %}border-success{% else %}border-danger{% endif %}">
+                    <div class="card-body position-relative">
+                        
+                        <div class="dropdown position-absolute top-0 end-0 mt-2 me-2">
+                            <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% if caja.activo %}
+                                <li>
+                                    <a class="dropdown-item small" href="#" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalEditarCaja"
+                                    data-id="{{ caja.id }}"
+                                    data-nombre="{{ caja.nombre }}"
+                                    data-responsable="{{ caja.responsable.id }}"
+                                    onclick="cargarDatosModal(this)">
+                                        <i class="fas fa-edit text-warning me-2"></i>Editar
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item small text-secondary" href="{% url 'caja_cerrar' caja.id %}" onclick="return confirm('¿Estás seguro de CERRAR esta caja? No podrás registrar más movimientos.')">
+                                        <i class="fas fa-lock me-2"></i>Cerrar Caja
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li><span class="dropdown-item-text small text-muted">Caja Cerrada</span></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item small text-danger" href="{% url 'caja_eliminar' caja.id %}" onclick="return confirm('¡PELIGRO! ¿Eliminar permanentemente esta caja? Si tiene dinero registrado, dará error.')">
+                                        <i class="fas fa-trash me-2"></i>Eliminar
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
 
+                        <h5 class="card-title text-dark fw-bold mb-0">{{ caja.nombre }}</h5>
+                        <span class="badge bg-light text-dark border mt-1">
+                            <i class="fas fa-user-shield me-1"></i> {{ caja.responsable.username }}
+                        </span>
+                        
+                        <div class="my-3 text-center py-2 bg-light rounded-3">
+                            <span class="display-6 fw-bold {% if caja.saldo_actual >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ${{ caja.saldo_actual }}
+                            </span>
+                            <p class="small text-muted mb-0">Saldo Actual</p>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'caja_detail' caja.id %}" class="btn btn-outline-primary btn-sm">
+                                Ver Movimientos <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white text-muted small d-flex justify-content-between">
+                        <span>
+                            {% if caja.activo %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-danger">Cerrada: {{ caja.fecha_cierre|date:"d/m/Y" }}</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="modal fade" id="modalEditarCaja" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Caja</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="formEditarCaja" method="POST" action="">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Nombre de la Caja</label>
+                                <input type="text" name="nombre" id="inputNombreEditar" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Responsable</label>
+                                <select name="responsable" id="selectResponsableEditar" class="form-select" required>
+                                    {% for usuario in usuarios %}
+                                        <option value="{{ usuario.id }}">{{ usuario.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function cargarDatosModal(elemento) {
+                // 1. Obtener datos del botón presionado
+                var id = elemento.getAttribute('data-id');
+                var nombre = elemento.getAttribute('data-nombre');
+                var responsable = elemento.getAttribute('data-responsable');
+
+                // 2. Rellenar el formulario del modal
+                document.getElementById('inputNombreEditar').value = nombre;
+                document.getElementById('selectResponsableEditar').value = responsable;
+
+                // 3. Actualizar la URL del formulario para que apunte al ID correcto
+                // OJO: Ajusta '/finanzas/cajas/' si tu URL base es diferente
+                var actionUrl = "/finanzas/cajas/" + id + "/editar/"; 
+                document.getElementById('formEditarCaja').action = actionUrl;
+            }
+        </script>
         <div class="row">
             {% for caja in cajas %}
             <div class="col-md-4 mb-4">
