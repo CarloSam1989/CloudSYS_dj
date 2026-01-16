@@ -1588,18 +1588,6 @@ def gestion_cuentas_view(request):
 
 # VISTA EDITAR
 def editar_cuenta_view(request, pk):
-    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
-    
-    if request.method == 'POST':
-        cuenta.banco = request.POST.get('banco')
-        cuenta.numero_cuenta = request.POST.get('numero')
-        cuenta.tipo = request.POST.get('tipo')
-        cuenta.save()
-        messages.success(request, 'Datos de la cuenta actualizados.')
-    
-    return redirect('core:gestion_cuentas')
-
-def editar_cuenta(request, id):
     # Buscamos la cuenta por ID, si no existe da error 404
     cuenta = get_object_or_404(CuentaBancaria, id=id)
 
