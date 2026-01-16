@@ -81,7 +81,7 @@
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item small text-danger" href="{% url 'core:eliminar_cuenta' cuenta.id %}" onclick="return confirm('¿Eliminar esta cuenta bancaria?')">
+                                    <a class="dropdown-item small text-danger" href="{% url 'eliminar_cuenta' cuenta.id %}" onclick="return confirm('¿Eliminar esta cuenta bancaria?')">
                                         <i class="fas fa-trash me-2"></i>Eliminar
                                     </a>
                                 </li>
@@ -107,7 +107,7 @@
                             <div class="small opacity-75 font-monospace">
                                 **** {{ cuenta.numero_cuenta|slice:"-4:" }}
                             </div>
-                            <a href="{% url 'core:cuenta_movimientos' cuenta.id %}" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3">
+                            <a href="{% url 'cuenta_movimientos' cuenta.id %}" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3">
                                 Ver Movimientos <i class="fas fa-arrow-right ms-1"></i>
                             </a>
                         </div>
