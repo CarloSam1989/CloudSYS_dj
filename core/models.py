@@ -237,7 +237,6 @@ class FacturaDetalle(models.Model):
     cantidad = models.DecimalField(max_digits=12, decimal_places=4)
     precio_unitario = models.DecimalField(max_digits=12, decimal_places=4)
     descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    precio_total_sin_impuesto = models.DecimalField(max_digits=12, decimal_places=2)
     precio_total_sin_impuesto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     impuestos = models.JSONField(default=dict)
 
