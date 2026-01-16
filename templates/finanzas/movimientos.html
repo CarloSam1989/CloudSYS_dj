@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Movimientos - {{ cuenta.banco }}{% endblock %}
+
+{% block content %}
+<main>
+    <div class="container-fluid px-4">
+        
+        <div class="card mt-4 mb-4 border-0 shadow text-white" 
+             style="background-color: {{ cuenta.color|default:'#4e73df' }}; border-radius: 15px;">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase opacity-75 mb-1">{{ cuenta.tipo }} - {{ cuenta.numero_cuenta }}</h6>
+                        <h2 class="display-5 fw-bold mb-0">{{ cuenta.banco }}</h2>
+                    </div>
+                    <div class="text-end">
+                        <p class="mb-0 opacity-75">Saldo Actual</p>
+                        <h1 class="fw-bold mb-0">${{ cuenta.saldo|intcomma }}</h1>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-plus me-2"></i>Registrar Movimiento</h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label class="small mb-1 fw-bold text-muted">Tipo de Movimiento</label>
+                                <div class="d-flex gap-2">
+                                    <input type="radio" class="btn-check" name="tipo" id="tipoIngreso" value="INGRESO" required>
+                                    <label class="btn btn-outline-success w-50" for="tipoIngreso"><i class="fas fa-arrow-down me-1"></i> Ingreso</label>
+
+                                    <input type="radio" class="btn-check" name="tipo" id="tipoEgreso" value="EGRESO" required checked>
+                                    <label class="btn btn-outline-danger w-50" for="tipoEgreso"><i class="fas fa-arrow-up me-1"></i> Egreso</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="small mb-1 fw-bold text-muted">Fecha</label>
+                                <input type="date" name="fecha" class="form-control" value="{% now 'Y-m-d' %}" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="small mb-1 fw-bold text-muted">Descripción</label>
+                                <input type="text" name="descripcion" class="form-control" placeholder="Ej: Pago de Luz, Depósito Cliente..." required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="small mb-1 fw-bold text-muted">Monto ($)</label>
+                                <input type="number" step="0.01" name="monto" class="form-control fw-bold" placeholder="0.00" required>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Registrar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="mt-3 text-center">
+                    <a href="{% url 'caja_list' %}" class="text-decoration-none text-muted small">
+                        <i class="fas fa-arrow-left me-1"></i> Volver a Cuentas
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-history me-2"></i>Historial de Transacciones</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="ps-4">Fecha</th>
+                                        <th>Descripción</th>
+                                        <th class="text-center">Tipo</th>
+                                        <th class="text-end pe-4">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mov in movimientos %}
+                                    <tr>
+                                        <td class="ps-4 text-muted small">{{ mov.fecha|date:"d M Y" }}</td>
+                                        <td class="fw-bold text-dark">{{ mov.descripcion }}</td>
+                                        <td class="text-center">
+                                            {% if mov.tipo == 'INGRESO' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">Ingreso</span>
+                                            {% else %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">Egreso</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end pe-4 fw-bold {% if mov.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                                            {% if mov.tipo == 'INGRESO' %}+{% else %}-{% endif %} ${{ mov.monto|intcomma }}
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-5 text-muted">
+                                            <i class="fas fa-receipt fa-2x mb-3 opacity-50"></i>
+                                            <p class="mb-0">No hay movimientos registrados en esta cuenta.</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

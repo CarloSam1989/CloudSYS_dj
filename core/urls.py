@@ -68,6 +68,7 @@ urlpatterns = [
     # GESTIÓN DE CUENTAS BANCARIAS
     path('finanzas/cuentas/', views.gestion_cuentas_view, name='caja_list'),
     path('cuentas/<int:id>/editar/', views.editar_cuenta, name='editar_cuenta'),
+    path('cuentas/<int:cuenta_id>/movimientos/', views.cuenta_movimientos_view, name='cuenta_movimientos'),
     path('finanzas/cuentas/<int:pk>/editar/', views.editar_cuenta_view, name='editar_cuenta'),
     path('finanzas/cuentas/<int:pk>/eliminar/', views.eliminar_cuenta_view, name='eliminar_cuenta'),
     path('finanzas/cuentas/<int:pk>/movimientos/', views.cuenta_movimientos_view, name='cuenta_movimientos'),

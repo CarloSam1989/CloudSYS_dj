@@ -1677,3 +1677,45 @@ def lista_cuentas(request):
         'cuentas': cuentas,
         'form': form
     })
+
+def cuenta_movimientos_view(request, cuenta_id):
+    # 1. Obtenemos la cuenta seleccionada
+    cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id)
+    
+    # 2. Procesamos el formulario de NUEVO MOVIMIENTO
+    if request.method == 'POST':
+        descripcion = request.POST.get('descripcion')
+        monto = float(request.POST.get('monto'))
+        tipo = request.POST.get('tipo') # 'INGRESO' o 'EGRESO'
+        fecha = request.POST.get('fecha')
+        
+        # Crear el movimiento
+        movimiento = Movimiento(
+            cuenta=cuenta,
+            descripcion=descripcion,
+            monto=monto,
+            tipo=tipo,
+            fecha=fecha
+        )
+        movimiento.save()
+        
+        # ACTUALIZAR SALDO DE LA CUENTA
+        if tipo == 'INGRESO':
+            cuenta.saldo += monto
+        else: # EGRESO
+            cuenta.saldo -= monto
+            
+        cuenta.save()
+        
+        messages.success(request, 'Movimiento registrado y saldo actualizado.')
+        return redirect('cuenta_movimientos', cuenta_id=cuenta.id)
+
+    # 3. Listamos los movimientos de esta cuenta (del más reciente al más antiguo)
+    # Asumiendo que tu modelo tiene related_name='movimientos' o usas _set
+    movimientos = cuenta.movimiento_set.all().order_by('-fecha', '-id')
+
+    context = {
+        'cuenta': cuenta,
+        'movimientos': movimientos
+    }
+    return render(request, 'finanzas/movimientos.html', context)
