@@ -1,15 +1,13 @@
 {% extends 'base.html' %}
-{% load humanize %} {% block title %}Tesorería - Cuentas Bancarias{% endblock %}
+{% load humanize %}
+
+{% block title %}Tesorería - Cuentas Bancarias{% endblock %}
 
 {% block content %}
 <main>
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
             <h2 class="h4"><i class="fas fa-university me-2 text-primary"></i>Cuentas Bancarias</h2>
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="#">Dashboard</a></li>
-                <li class="breadcrumb-item active">Bancos</li>
-            </ol>
         </div>
 
         <div class="card mb-4 shadow-sm border-0 border-top border-4 border-primary">
@@ -20,12 +18,10 @@
                 <form method="post" action="{% url 'caja_list' %}">
                     {% csrf_token %}
                     <div class="row g-2 align-items-end">
-                        
                         <div class="col-md-3">
-                            <label class="form-label small mb-1 fw-bold text-muted">Institución Financiera</label>
+                            <label class="form-label small mb-1 fw-bold text-muted">Institución</label>
                             <input type="text" name="banco" class="form-control form-control-sm" placeholder="Ej: Banco Pichincha" required>
                         </div>
-
                         <div class="col-md-2">
                             <label class="form-label small mb-1 fw-bold text-muted">Tipo</label>
                             <select name="tipo" class="form-select form-select-sm" required>
@@ -33,12 +29,10 @@
                                 <option value="AH">Ahorros</option>
                             </select>
                         </div>
-
                         <div class="col-md-3">
-                            <label class="form-label small mb-1 fw-bold text-muted">Número de Cuenta</label>
-                            <input type="text" name="numero" class="form-control form-control-sm" placeholder="Ej: 2100458..." required>
+                            <label class="form-label small mb-1 fw-bold text-muted">Número</label>
+                            <input type="text" name="numero" class="form-control form-control-sm" required>
                         </div>
-                        
                         <div class="col-md-2">
                             <label class="form-label small mb-1 fw-bold text-muted">Saldo Inicial</label>
                             <div class="input-group input-group-sm">
@@ -46,11 +40,12 @@
                                 <input type="number" step="0.01" name="saldo_inicial" class="form-control" value="0.00">
                             </div>
                         </div>
-
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary btn-sm w-100">
-                                <i class="fas fa-save me-1"></i> Guardar
-                            </button>
+                        <div class="col-md-1">
+                            <label class="form-label small mb-1 fw-bold text-muted">Color</label>
+                            <input type="color" name="color" class="form-control form-control-sm form-control-color w-100" value="#4e73df" title="Elige un color para la tarjeta">
+                        </div>
+                        <div class="col-md-1">
+                            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="fas fa-save"></i></button>
                         </div>
                     </div>
                 </form>
@@ -60,12 +55,16 @@
         <div class="row">
             {% for cuenta in cuentas %}
             <div class="col-md-6 col-xl-4 mb-4">
-                <div class="card shadow h-100 text-white {% if cuenta.tipo == 'CTE' %}bg-primary bg-gradient{% else %}bg-success bg-gradient{% endif %}" style="border-radius: 15px;">
+                <div class="card shadow h-100 text-white" 
+                     style="border-radius: 15px; background-color: {{ cuenta.color|default:'#4e73df' }};">
+                    
                     <div class="card-body position-relative p-4">
                         
                         <div class="dropdown position-absolute top-0 end-0 mt-3 me-3">
-                            <button class="btn btn-sm btn-light rounded-circle shadow-sm" type="button" data-bs-toggle="dropdown" style="width: 30px; height: 30px; padding: 0;">
-                                <i class="fas fa-ellipsis-v text-dark"></i>
+                            <button class="btn btn-sm btn-light rounded-circle shadow-sm text-dark" 
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false" 
+                                    style="width: 30px; height: 30px; padding: 0;">
+                                <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
@@ -76,12 +75,13 @@
                                        data-banco="{{ cuenta.banco }}"
                                        data-numero="{{ cuenta.numero_cuenta }}"
                                        data-tipo="{{ cuenta.tipo }}"
+                                       data-color="{{ cuenta.color }}" 
                                        onclick="cargarDatosCuenta(this)">
                                         <i class="fas fa-edit text-warning me-2"></i>Editar Datos
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item small text-danger" href="{% url 'eliminar_cuenta' cuenta.id %}" onclick="return confirm('¿Eliminar esta cuenta bancaria?')">
+                                    <a class="dropdown-item small text-danger" href="{% url 'eliminar_cuenta' cuenta.id %}" onclick="return confirm('¿Seguro?')">
                                         <i class="fas fa-trash me-2"></i>Eliminar
                                     </a>
                                 </li>
@@ -90,24 +90,24 @@
 
                         <div class="d-flex justify-content-between align-items-start mb-4">
                             <div>
-                                <h5 class="card-title fw-bold mb-0"><i class="fas fa-university me-2"></i>{{ cuenta.banco }}</h5>
-                                <span class="badge bg-white text-dark mt-1 bg-opacity-75">
-                                    {{ cuenta.get_tipo_display }}
-                                </span>
+                                <h5 class="card-title fw-bold mb-0 text-white" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">
+                                    <i class="fas fa-university me-2"></i>{{ cuenta.banco }}
+                                </h5>
+                                <span class="badge bg-white text-dark mt-1 bg-opacity-75">{{ cuenta.get_tipo_display }}</span>
                             </div>
-                            <i class="fab fa-cc-visa fa-2x opacity-50"></i>
+                            <i class="fab fa-cc-visa fa-2x opacity-50 text-white"></i>
                         </div>
 
                         <div class="text-center my-3">
                             <p class="mb-0 opacity-75 small text-uppercase ls-1">Saldo Disponible</p>
-                            <h2 class="display-6 fw-bold mb-0">${{ cuenta.saldo }}</h2>
+                            <h2 class="display-6 fw-bold mb-0" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.2);">
+                                ${{ cuenta.saldo|intcomma }}
+                            </h2>
                         </div>
 
                         <div class="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center">
-                            <div class="small opacity-75 font-monospace">
-                                **** {{ cuenta.numero_cuenta|slice:"-4:" }}
-                            </div>
-                            <a href="{% url 'cuenta_movimientos' cuenta.id %}" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3">
+                            <div class="small opacity-75 font-monospace">**** {{ cuenta.numero_cuenta|slice:"-4:" }}</div>
+                            <a href="{% url 'cuenta_movimientos' cuenta.id %}" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3 shadow-sm">
                                 Ver Movimientos <i class="fas fa-arrow-right ms-1"></i>
                             </a>
                         </div>
@@ -115,12 +115,8 @@
                 </div>
             </div>
             {% empty %}
-            <div class="col-12">
-                <div class="alert alert-info py-5 text-center">
-                    <i class="fas fa-piggy-bank fa-3x mb-3 text-muted"></i>
-                    <h5>No tienes cuentas bancarias registradas.</h5>
-                    <p class="text-muted">Registra tu primera cuenta para controlar la tesorería.</p>
-                </div>
+            <div class="col-12 text-center py-5">
+                <h5 class="text-muted">No hay cuentas registradas.</h5>
             </div>
             {% endfor %}
         </div>
@@ -141,16 +137,22 @@
                         <label class="form-label">Nombre del Banco</label>
                         <input type="text" name="banco" id="editBanco" class="form-control" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Número de Cuenta</label>
-                        <input type="text" name="numero" id="editNumero" class="form-control" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Número de Cuenta</label>
+                            <input type="text" name="numero" id="editNumero" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tipo de Cuenta</label>
+                            <select name="tipo" id="editTipo" class="form-select">
+                                <option value="CTE">Corriente</option>
+                                <option value="AH">Ahorros</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Tipo de Cuenta</label>
-                        <select name="tipo" id="editTipo" class="form-select">
-                            <option value="CTE">Corriente</option>
-                            <option value="AH">Ahorros</option>
-                        </select>
+                        <label class="form-label">Color de Tarjeta</label>
+                        <input type="color" name="color" id="editColor" class="form-control form-control-color w-100" title="Elige el color">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -164,14 +166,14 @@
 
 <script>
     function cargarDatosCuenta(btn) {
-        // Llenar modal
+        // Llenar los campos del modal con los datos del botón
         document.getElementById('editBanco').value = btn.getAttribute('data-banco');
         document.getElementById('editNumero').value = btn.getAttribute('data-numero');
         document.getElementById('editTipo').value = btn.getAttribute('data-tipo');
+        document.getElementById('editColor').value = btn.getAttribute('data-color'); // Cargar color actual
         
-        // Actualizar Action del Form
+        // Configurar la URL de acción del formulario
         let id = btn.getAttribute('data-id');
-        // Ajusta la URL base según tu configuración real
         document.getElementById('formEditarCuenta').action = "/finanzas/cuentas/" + id + "/editar/";
     }
 </script>

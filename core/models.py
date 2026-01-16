@@ -578,6 +578,7 @@ class CuentaBancaria(models.Model):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, null=True, blank=True)
     banco = models.CharField(max_length=100, default='Banco General', verbose_name="Nombre del Banco")
     numero_cuenta = models.CharField(max_length=20, unique=True)
+    color = models.CharField(max_length=7, default='#4e73df', verbose_name="Color de Tarjeta")
     tipo = models.CharField(max_length=3, choices=[('AH', 'Ahorros'), ('CTE', 'Corriente')])
     saldo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     activa = models.BooleanField(default=True)

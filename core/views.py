@@ -1563,7 +1563,7 @@ def gestion_cuentas_view(request):
         numero = request.POST.get('numero')
         tipo = request.POST.get('tipo')
         saldo_inicial = request.POST.get('saldo_inicial', 0)
-        
+        color = request.POST.get('color', '#4e73df')
         if banco and numero:
             CuentaBancaria.objects.create(
                 empresa=empresa_actual,
