@@ -286,17 +286,15 @@ class MetodoPagoAjaxForm(forms.ModelForm):
 class CuentaBancariaForm(forms.ModelForm):
     class Meta:
         model = CuentaBancaria
-        # Incluimos los campos que el usuario debe llenar
-        fields = ['banco', 'numero_cuenta', 'tipo', 'moneda', 'saldo']
+        # HE QUITADO 'moneda' DE ESTA LISTA:
+        fields = ['banco', 'numero_cuenta', 'tipo', 'saldo'] 
         
-        # Etiquetas personalizadas (opcional, si quieres cambiar lo que sale en el modelo)
         labels = {
             'numero_cuenta': 'Número de Cuenta / CLABE',
             'banco': 'Nombre del Banco',
             'saldo': 'Saldo Inicial'
         }
         
-        # Widgets para personalizar cómo se ven los inputs (Placeholders, atributos extra)
         widgets = {
             'banco': forms.TextInput(attrs={'placeholder': 'Ej: Banco Pichincha'}),
             'numero_cuenta': forms.TextInput(attrs={'placeholder': 'Ej: 1234567890'}),
@@ -305,8 +303,6 @@ class CuentaBancariaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Este ciclo recorre todos los campos y les pone la clase 'form-control'
-        # o 'form-select' de Bootstrap automáticamente.
         for field_name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs['class'] = 'form-check-input'

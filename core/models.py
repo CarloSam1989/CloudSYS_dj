@@ -575,6 +575,7 @@ class AbonoPrestamo(models.Model):
 class CuentaBancaria(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True)
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, null=True, blank=True)
+    moneda = models.CharField(max_length=3, default='USD', choices=[('USD', 'Dólares'), ('EUR', 'Euros')])
     banco = models.CharField(max_length=100, default='Banco General', verbose_name="Nombre del Banco")
     numero_cuenta = models.CharField(max_length=20, unique=True)
     color = models.CharField(max_length=7, default='#4e73df', verbose_name="Color de Tarjeta")
