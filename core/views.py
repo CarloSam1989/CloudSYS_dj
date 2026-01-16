@@ -1588,6 +1588,35 @@ def gestion_cuentas_view(request):
 
 # VISTA EDITAR
 def editar_cuenta_view(request, pk):
+    # 1. Obtenemos la cuenta
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
+    
+    if request.method == 'POST':
+        # 2. Actualizamos los campos manualmente
+        cuenta.banco = request.POST.get('banco')
+        
+        # ERROR ESTABA AQUÍ: Debe ser 'numero_cuenta', no 'numero'
+        cuenta.numero_cuenta = request.POST.get('numero_cuenta') 
+        
+        cuenta.tipo = request.POST.get('tipo')
+        
+        # AGREGAR ESTO: Para que se guarde el cambio de saldo
+        saldo_value = request.POST.get('saldo')
+        if saldo_value:
+            cuenta.saldo = saldo_value
+
+        # AGREGAR ESTO: Para que se guarde el cambio de color
+        cuenta.color = request.POST.get('color')
+
+        # 3. Guardamos en la BD
+        cuenta.save()
+        
+        messages.success(request, 'Datos de la cuenta actualizados correctamente.')
+    
+    # Asegúrate de que este redirect apunte a la URL correcta de tu lista
+    return redirect('caja_list')
+
+def editar_cuenta(request, id):
     # Buscamos la cuenta por ID, si no existe da error 404
     cuenta = get_object_or_404(CuentaBancaria, id=id)
 
