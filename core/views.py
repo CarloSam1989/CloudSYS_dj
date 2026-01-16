@@ -1678,41 +1678,34 @@ def lista_cuentas(request):
         'form': form
     })
 
-def cuenta_movimientos_view(request, cuenta_id):
-    # 1. Obtenemos la cuenta seleccionada
-    cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id)
+def cuenta_movimientos_view(request, pk):
+    # 1. Obtener la cuenta
+    cuenta = get_object_or_404(CuentaBancaria, pk=pk)
     
-    # 2. Procesamos el formulario de NUEVO MOVIMIENTO
+    # 2. Procesar Nuevo Movimiento
     if request.method == 'POST':
         descripcion = request.POST.get('descripcion')
-        monto = float(request.POST.get('monto'))
-        tipo = request.POST.get('tipo') # 'INGRESO' o 'EGRESO'
-        fecha = request.POST.get('fecha')
+        monto = request.POST.get('monto')
+        tipo = request.POST.get('tipo') # Recibiremos 'DEP' o 'RET' del HTML
         
-        # Crear el movimiento
-        movimiento = Movimiento(
+        # Creamos la transacción
+        # NOTA: No pasamos 'fecha' porque tu modelo tiene auto_now_add=True
+        TransaccionBancaria.objects.create(
             cuenta=cuenta,
             descripcion=descripcion,
             monto=monto,
-            tipo=tipo,
-            fecha=fecha
+            tipo=tipo
         )
-        movimiento.save()
         
-        # ACTUALIZAR SALDO DE LA CUENTA
-        if tipo == 'INGRESO':
-            cuenta.saldo += monto
-        else: # EGRESO
-            cuenta.saldo -= monto
-            
-        cuenta.save()
+        # ¡IMPORTANTE! NO actualizamos el saldo aquí (cuenta.saldo += ...).
+        # Tu modelo TransaccionBancaria.save() ya lo hace automáticamente.
         
-        messages.success(request, 'Movimiento registrado y saldo actualizado.')
-        return redirect('cuenta_movimientos', cuenta_id=cuenta.id)
+        messages.success(request, 'Transacción registrada correctamente.')
+        return redirect('cuenta_movimientos', pk=cuenta.pk)
 
-    # 3. Listamos los movimientos de esta cuenta (del más reciente al más antiguo)
-    # Asumiendo que tu modelo tiene related_name='movimientos' o usas _set
-    movimientos = cuenta.movimiento_set.all().order_by('-fecha', '-id')
+    # 3. Listar transacciones
+    # Usamos 'transacciones' porque en tu modelo pusiste related_name='transacciones'
+    movimientos = cuenta.transacciones.all().order_by('-fecha', '-id')
 
     context = {
         'cuenta': cuenta,

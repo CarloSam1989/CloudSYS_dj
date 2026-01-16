@@ -12,7 +12,7 @@
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-uppercase opacity-75 mb-1">{{ cuenta.tipo }} - {{ cuenta.numero_cuenta }}</h6>
+                        <h6 class="text-uppercase opacity-75 mb-1">{{ cuenta.get_tipo_display }} - {{ cuenta.numero_cuenta }}</h6>
                         <h2 class="display-5 fw-bold mb-0">{{ cuenta.banco }}</h2>
                     </div>
                     <div class="text-end">
@@ -27,26 +27,26 @@
             <div class="col-lg-4 mb-4">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white py-3">
-                        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-plus me-2"></i>Registrar Movimiento</h6>
+                        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-plus me-2"></i>Registrar Transacción</h6>
                     </div>
                     <div class="card-body">
                         <form method="POST">
                             {% csrf_token %}
                             
                             <div class="mb-3">
-                                <label class="small mb-1 fw-bold text-muted">Tipo de Movimiento</label>
+                                <label class="small mb-1 fw-bold text-muted">Tipo de Transacción</label>
                                 <div class="d-flex gap-2">
-                                    <input type="radio" class="btn-check" name="tipo" id="tipoIngreso" value="INGRESO" required>
-                                    <label class="btn btn-outline-success w-50" for="tipoIngreso"><i class="fas fa-arrow-down me-1"></i> Ingreso</label>
+                                    <input type="radio" class="btn-check" name="tipo" id="tipoIngreso" value="DEP" required>
+                                    <label class="btn btn-outline-success w-50" for="tipoIngreso"><i class="fas fa-arrow-down me-1"></i> Depósito</label>
 
-                                    <input type="radio" class="btn-check" name="tipo" id="tipoEgreso" value="EGRESO" required checked>
-                                    <label class="btn btn-outline-danger w-50" for="tipoEgreso"><i class="fas fa-arrow-up me-1"></i> Egreso</label>
+                                    <input type="radio" class="btn-check" name="tipo" id="tipoEgreso" value="RET" required checked>
+                                    <label class="btn btn-outline-danger w-50" for="tipoEgreso"><i class="fas fa-arrow-up me-1"></i> Retiro</label>
                                 </div>
                             </div>
 
                             <div class="mb-3">
-                                <label class="small mb-1 fw-bold text-muted">Fecha</label>
-                                <input type="date" name="fecha" class="form-control" value="{% now 'Y-m-d' %}" required>
+                                <label class="small mb-1 fw-bold text-muted">Fecha (Registro automático)</label>
+                                <input type="text" class="form-control" value="{% now 'd/m/Y H:i' %}" disabled>
                             </div>
 
                             <div class="mb-3">
@@ -92,24 +92,24 @@
                                 <tbody>
                                     {% for mov in movimientos %}
                                     <tr>
-                                        <td class="ps-4 text-muted small">{{ mov.fecha|date:"d M Y" }}</td>
+                                        <td class="ps-4 text-muted small">{{ mov.fecha|date:"d M Y H:i" }}</td>
                                         <td class="fw-bold text-dark">{{ mov.descripcion }}</td>
                                         <td class="text-center">
-                                            {% if mov.tipo == 'INGRESO' %}
-                                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">Ingreso</span>
+                                            {% if mov.tipo == 'DEP' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">Depósito</span>
                                             {% else %}
-                                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">Egreso</span>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">Retiro</span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-end pe-4 fw-bold {% if mov.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
-                                            {% if mov.tipo == 'INGRESO' %}+{% else %}-{% endif %} ${{ mov.monto|intcomma }}
+                                        <td class="text-end pe-4 fw-bold {% if mov.tipo == 'DEP' %}text-success{% else %}text-danger{% endif %}">
+                                            {% if mov.tipo == 'DEP' %}+{% else %}-{% endif %} ${{ mov.monto|intcomma }}
                                         </td>
                                     </tr>
                                     {% empty %}
                                     <tr>
                                         <td colspan="4" class="text-center py-5 text-muted">
                                             <i class="fas fa-receipt fa-2x mb-3 opacity-50"></i>
-                                            <p class="mb-0">No hay movimientos registrados en esta cuenta.</p>
+                                            <p class="mb-0">No hay transacciones registradas.</p>
                                         </td>
                                     </tr>
                                     {% endfor %}
