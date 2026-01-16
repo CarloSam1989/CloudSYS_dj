@@ -1685,26 +1685,27 @@ def cuenta_movimientos_view(request, pk):
     # 2. Procesar Nuevo Movimiento
     if request.method == 'POST':
         descripcion = request.POST.get('descripcion')
-        monto = request.POST.get('monto')
-        tipo = request.POST.get('tipo') # Recibiremos 'DEP' o 'RET' del HTML
         
-        # Creamos la transacción
-        # NOTA: No pasamos 'fecha' porque tu modelo tiene auto_now_add=True
+        # CORRECCIÓN AQUÍ: Convertimos el texto a Decimal
+        monto_str = request.POST.get('monto')
+        monto = Decimal(monto_str) 
+        
+        tipo = request.POST.get('tipo') 
+        
+        # Creamos la transacción pasándole el monto ya convertido
         TransaccionBancaria.objects.create(
             cuenta=cuenta,
             descripcion=descripcion,
-            monto=monto,
+            monto=monto, # Ahora sí es un número
             tipo=tipo
         )
         
-        # ¡IMPORTANTE! NO actualizamos el saldo aquí (cuenta.saldo += ...).
-        # Tu modelo TransaccionBancaria.save() ya lo hace automáticamente.
+        # El método .save() de tu modelo se encargará del saldo automáticamente
         
         messages.success(request, 'Transacción registrada correctamente.')
         return redirect('cuenta_movimientos', pk=cuenta.pk)
 
     # 3. Listar transacciones
-    # Usamos 'transacciones' porque en tu modelo pusiste related_name='transacciones'
     movimientos = cuenta.transacciones.all().order_by('-fecha', '-id')
 
     context = {

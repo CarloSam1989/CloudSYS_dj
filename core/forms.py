@@ -310,3 +310,24 @@ class CuentaBancariaForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
             else:
                 field.widget.attrs['class'] = 'form-control'
+
+class CotizacionDetalleForm(forms.ModelForm):
+    class Meta:
+        model = CotizacionDetalle
+        fields = ['producto', 'cantidad', 'precio_unitario', 'subtotal'] # Ajusta a tus campos reales
+        
+        widgets = {
+            'producto': forms.Select(attrs={'class': 'form-select select2'}), # select2 si usas búsqueda
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'subtotal': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
+        }
+
+# 2. Aquí creamos el FormSet (La "Tabla" de formularios)
+CotizacionDetalleFormSet = inlineformset_factory(
+    parent_model=Cotizacion,       # El modelo Papá (Cabecera)
+    model=CotizacionDetalle,       # El modelo Hijo (Detalle)
+    form=CotizacionDetalleForm,    # El formulario con estilo que creamos arriba
+    extra=1,                       # Cuántas filas vacías mostrar al inicio (por defecto 1)
+    can_delete=True                # Permitir borrar filas
+)
