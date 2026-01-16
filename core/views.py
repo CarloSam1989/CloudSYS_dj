@@ -1599,6 +1599,26 @@ def editar_cuenta_view(request, pk):
     
     return redirect('core:gestion_cuentas')
 
+def editar_cuenta(request, id):
+    # Buscamos la cuenta por ID, si no existe da error 404
+    cuenta = get_object_or_404(CuentaBancaria, id=id)
+
+    if request.method == 'POST':
+        # Cargamos el formulario con los datos que llegan (request.POST) 
+        # y le decimos que es una edición de 'cuenta' (instance=cuenta)
+        form = CuentaBancariaForm(request.POST, instance=cuenta)
+        
+        if form.is_valid():
+            form.save()
+            messages.success(request, '¡Cuenta actualizada correctamente!')
+            return redirect('caja_list') # O el nombre de tu URL de lista
+        else:
+            messages.error(request, 'Error al actualizar. Revisa los datos.')
+            print(form.errors) # Para ver errores en la terminal
+    
+    # Si alguien intenta entrar directo por URL, lo mandamos a la lista
+    return redirect('caja_list')
+
 # VISTA ELIMINAR (O DESACTIVAR)
 def eliminar_cuenta_view(request, pk):
     cuenta = get_object_or_404(CuentaBancaria, pk=pk)
