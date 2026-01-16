@@ -42,7 +42,7 @@
                         </div>
                         <div class="col-md-1">
                             <label class="form-label small mb-1 fw-bold text-muted">Color</label>
-                            <input type="color" name="color" class="form-control form-control-sm form-control-color w-100" value="#4e73df" title="Elige un color para la tarjeta">
+                            <input type="color" name="color" class="form-control form-control-sm form-control-color w-100" value="#4e73df">
                         </div>
                         <div class="col-md-1">
                             <button type="submit" class="btn btn-primary btn-sm w-100"><i class="fas fa-save"></i></button>
@@ -139,6 +139,7 @@
                         <label class="form-label">Nombre del Banco</label>
                         <input type="text" name="banco" id="editBanco" class="form-control" required>
                     </div>
+                    
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Número de Cuenta</label>
@@ -174,22 +175,26 @@
 
 <script>
     function cargarDatosCuenta(btn) {
+        console.log("Cargando datos..."); // Para depuración
+
         // 1. Obtener datos del botón
         const id = btn.getAttribute('data-id');
         const banco = btn.getAttribute('data-banco');
-        const numero = btn.getAttribute('data-numero');
+        const numero = btn.getAttribute('data-numero'); // Debe contener el numero de cuenta
         const tipo = btn.getAttribute('data-tipo');
         const saldo = btn.getAttribute('data-saldo');
         const color = btn.getAttribute('data-color');
 
-        // 2. Llenar los campos del formulario con los IDs correctos
+        // 2. Llenar los campos del formulario
+        // Es vital que 'editNumero' reciba un valor, si recibe vacío -> Error Integrity
         document.getElementById('editBanco').value = banco;
-        document.getElementById('editNumero').value = numero; // Llena el campo numero_cuenta
+        document.getElementById('editNumero').value = numero; 
         document.getElementById('editTipo').value = tipo;
         document.getElementById('editSaldo').value = saldo;
         document.getElementById('editColor').value = color || '#4e73df'; 
         
         // 3. Configurar la URL de acción dinámicamente
+        // Asegúrate que esta URL coincida con tu urls.py
         document.getElementById('formEditarCuenta').action = "/finanzas/cuentas/" + id + "/editar/";
     }
 </script>
