@@ -17,7 +17,7 @@
                 <small class="fw-bold text-primary"><i class="fas fa-plus-circle me-1"></i> Registrar Nueva Cuenta</small>
             </div>
             <div class="card-body p-3">
-                <form method="post" action="{% url 'core:gestion_cuentas' %}">
+                <form method="post" action="{% url 'gestion_cuentas' %}">
                     {% csrf_token %}
                     <div class="row g-2 align-items-end">
                         
