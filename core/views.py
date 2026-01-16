@@ -12,6 +12,9 @@ from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.db import IntegrityError
+from core.models import *  # Ajusta el import según tu estructura
+from .forms import *
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
@@ -1611,3 +1614,29 @@ def cuenta_movimientos_view(request, pk):
     # Aquí necesitarías un modelo TransaccionBancaria vinculado a la cuenta
     # movimientos = cuenta.transacciones.all().order_by('-fecha')
     return render(request, 'finanzas/cuenta_movimientos.html', {'cuenta': cuenta})
+
+def lista_cuentas(request):
+    # .all() trae TODAS (activas y cerradas). order_by('-id') muestra las nuevas primero
+    cuentas = CuentaBancaria.objects.all().order_by('-id')
+    
+    # Manejo del formulario en la misma vista (Opcional, si usas modal)
+    # Si usas una vista separada para crear, mueve esto a esa vista
+    if request.method == 'POST':
+        form = CuentaBancariaForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, 'Cuenta bancaria creada exitosamente.')
+                return redirect('lista_cuentas')
+            except IntegrityError:
+                # AQUÍ CAPTURAMOS EL ERROR DEL NÚMERO DUPLICADO
+                messages.error(request, 'Error: El número de cuenta ingresado ya existe en el sistema.')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = CuentaBancariaForm()
+
+    return render(request, 'finanzas/lista_cuentas.html', {
+        'cuentas': cuentas,
+        'form': form
+    })
