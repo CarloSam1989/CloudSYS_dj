@@ -45,51 +45,51 @@ class ClienteForm(forms.ModelForm):
         fields = ['nombre', 'ruc', 'email', 'direccion', 'telefono']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Nombre'}),
-            'ruc': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'RUC'}),
+            'ruc': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'RUC / Cédula'}),
             'email': forms.EmailInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Email'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Teléfono'}),
             'direccion': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 1, 'placeholder': 'Dirección'}),
         }
-        def clean_dni(self):
-            dni = self.cleaned_data.get('dni')
-            if not dni:
-                return dni
-                
-            # Si longitud es 10 y es numérico, validar algoritmo Cédula
-            if len(dni) == 10 and dni.isdigit():
-                # Implementar lógica módulo 10 aquí (similar a JS)
-                # O usar una librería como 'python-stdnum'
-                if not self.validar_algoritmo_cedula(dni):
-                    raise ValidationError("La cédula ecuatoriana ingresada es inválida.")
-            
-            # Si no es 10 digitos, asumimos Pasaporte, solo verificamos longitud mínima
-            elif len(dni) < 5:
-                raise ValidationError("El documento es demasiado corto.")
-                
+
+    # CORRECCIÓN: Renombrado de clean_dni a clean_ruc para que coincida con el campo
+    def clean_ruc(self):
+        dni = self.cleaned_data.get('ruc') # Obtenemos el campo ruc
+        if not dni:
             return dni
+            
+        # Si longitud es 10 y es numérico, validar algoritmo Cédula
+        if len(dni) == 10 and dni.isdigit():
+            if not self.validar_algoritmo_cedula(dni):
+                raise ValidationError("La cédula ecuatoriana ingresada es inválida.")
+        
+        # Si no es 10 digitos, asumimos Pasaporte o RUC jurídico
+        elif len(dni) < 5:
+            raise ValidationError("El documento es demasiado corto.")
+            
+        return dni
 
-        def validar_algoritmo_cedula(self, cedula):
-            # Lógica Python del algoritmo Módulo 10
-            coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2]
-            total = 0
-            try:
-                provincia = int(cedula[:2])
-                if not (1 <= provincia <= 24 or provincia == 30): return False
-                
-                tercer = int(cedula[2])
-                if tercer >= 6: return False # Solo validamos personas naturales estrictamente
+    def validar_algoritmo_cedula(self, cedula):
+        # Lógica Python del algoritmo Módulo 10
+        coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2]
+        total = 0
+        try:
+            provincia = int(cedula[:2])
+            if not (1 <= provincia <= 24 or provincia == 30): return False
+            
+            tercer = int(cedula[2])
+            if tercer >= 6: return False # Solo validamos personas naturales estrictamente
 
-                for i in range(9):
-                    valor = int(cedula[i]) * coeficientes[i]
-                    total += (valor - 9) if valor >= 10 else valor
-                
-                decena = (total + 9) // 10 * 10
-                digito = decena - total
-                if digito == 10: digito = 0
-                
-                return digito == int(cedula[9])
-            except:
-                return False
+            for i in range(9):
+                valor = int(cedula[i]) * coeficientes[i]
+                total += (valor - 9) if valor >= 10 else valor
+            
+            decena = (total + 9) // 10 * 10
+            digito = decena - total
+            if digito == 10: digito = 0
+            
+            return digito == int(cedula[9])
+        except:
+            return False
 
 class ProveedorForm(forms.ModelForm):
     class Meta:
@@ -197,38 +197,48 @@ class CompraDetalleForm(forms.ModelForm):
 CompraDetalleFormSet = formset_factory(CompraDetalleForm, extra=1)
 
 # ==========================================
-# 4. COTIZACIONES
+# 4. COTIZACIONES (CORREGIDO)
 # ==========================================
+
 class CotizacionForm(forms.ModelForm):
     class Meta:
         model = Cotizacion
         fields = ['cliente', 'fecha_vencimiento'] 
-        # 'total' y 'fecha_emision' suelen ser automáticos
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-select form-select-sm'}),
             'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control form-control-sm', 'type': 'date'}),
         }
 
-class DetalleCotizacionForm(forms.ModelForm):
+class CotizacionDetalleForm(forms.ModelForm):
+    # CORRECCIÓN: Definimos subtotal aquí porque NO es parte de la Base de Datos
+    # Esto soluciona el "FieldError: Unknown field(s) (subtotal)"
+    subtotal = forms.DecimalField(
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': '0.00'})
+    )
+
     class Meta:
         model = CotizacionDetalle
-        fields = ['producto', 'cantidad', 'precio_unitario']
+        # Eliminamos 'subtotal' de esta lista
+        fields = ['producto', 'cantidad', 'precio_unitario'] 
+        
         widgets = {
-            'producto': forms.Select(attrs={'class': 'form-select form-select-sm'}),
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control form-control-sm text-center', 'min': '1'}),
-            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control form-control-sm text-end', 'step': '0.01'}),
+            'producto': forms.Select(attrs={'class': 'form-select select2'}), 
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
 
-# Factory para el detalle
-DetalleCotizacionFormSet = inlineformset_factory(
-    Cotizacion, 
-    CotizacionDetalle, 
-    form=DetalleCotizacionForm,
-    extra=1,  # Empieza con 1 fila vacía
+# Factory para el detalle de Cotización
+CotizacionDetalleFormSet = inlineformset_factory(
+    parent_model=Cotizacion,
+    model=CotizacionDetalle,
+    form=CotizacionDetalleForm,
+    extra=1,
     can_delete=True
 )
+
 # ==========================================
-# 5. VENTAS / FACTURACIÓN (NUEVO CÓDIGO)
+# 5. VENTAS / FACTURACIÓN
 # ==========================================
 
 class FacturaForm(forms.ModelForm):
@@ -255,13 +265,11 @@ class FacturaDetalleForm(forms.ModelForm):
         model = FacturaDetalle
         fields = ['producto', 'cantidad', 'precio_unitario']
         widgets = {
-            # Las clases CSS aquí son CRÍTICAS para que funcione el JavaScript de cálculo
             'producto': forms.Select(attrs={'class': 'form-select form-select-sm producto-select'}),
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control form-control-sm text-center cantidad-input', 'step': '0.01'}),
-            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control form-control-sm text-end precio-input', 'step': '0.01'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control form-select-sm text-center cantidad-input', 'step': '0.01'}),
+            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control form-select-sm text-end precio-input', 'step': '0.01'}),
         }
 
-# Usamos inlineformset_factory para manejar la relación Factura -> Detalles automáticamente
 DetalleFacturaFormSet = inlineformset_factory(
     Factura, 
     FacturaDetalle, 
@@ -282,11 +290,9 @@ class MetodoPagoAjaxForm(forms.ModelForm):
         model = MetodoPago
         fields = ['nombre']
 
-
 class CuentaBancariaForm(forms.ModelForm):
     class Meta:
         model = CuentaBancaria
-        # HE QUITADO 'moneda' DE ESTA LISTA:
         fields = ['banco', 'numero_cuenta', 'tipo', 'saldo'] 
         
         labels = {
@@ -310,24 +316,3 @@ class CuentaBancariaForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
             else:
                 field.widget.attrs['class'] = 'form-control'
-
-class CotizacionDetalleForm(forms.ModelForm):
-    class Meta:
-        model = CotizacionDetalle
-        fields = ['producto', 'cantidad', 'precio_unitario', 'subtotal'] # Ajusta a tus campos reales
-        
-        widgets = {
-            'producto': forms.Select(attrs={'class': 'form-select select2'}), # select2 si usas búsqueda
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
-            'precio_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'subtotal': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
-        }
-
-# 2. Aquí creamos el FormSet (La "Tabla" de formularios)
-CotizacionDetalleFormSet = inlineformset_factory(
-    parent_model=Cotizacion,       # El modelo Papá (Cabecera)
-    model=CotizacionDetalle,       # El modelo Hijo (Detalle)
-    form=CotizacionDetalleForm,    # El formulario con estilo que creamos arriba
-    extra=1,                       # Cuántas filas vacías mostrar al inicio (por defecto 1)
-    can_delete=True                # Permitir borrar filas
-)
