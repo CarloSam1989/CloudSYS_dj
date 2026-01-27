@@ -132,7 +132,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 EMAIL_HOST_USER = 'soporte.cloudcenter@outlook.com'
-EMAIL_HOST_PASSWORD = 'juan211289'
+EMAIL_HOST_PASSWORD = 'kyumoinptbljrjhr'
 
 DEFAULT_FROM_EMAIL = 'SYSCLOUD Sistema Integrador <soporte.cloudcenter@outlook.com>'
 
