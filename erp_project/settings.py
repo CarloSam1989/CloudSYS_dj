@@ -122,15 +122,19 @@ if not CELERY_BROKER_URL:
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# 11. CONFIGURACIÓN DE CORREO (EJEMPLO)
+# 11. CONFIGURACIÓN DE CORREO
 # ==============================================================================
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = env('EMAIL_HOST')
-# EMAIL_PORT = env.int('EMAIL_PORT')
-# EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS')
-# EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-# EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-# DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+# EMAIL CONFIGURATION (OUTLOOK)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_HOST = 'smtp.office365.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = 'soporte.cloudcenter@outlook.com'
+EMAIL_HOST_PASSWORD = 'juan211289'
+
+DEFAULT_FROM_EMAIL = 'SYSCLOUD Sistema Integrador <soporte.cloudcenter@outlook.com>'
 
 
 # 12. CONFIGURACIÓN FINAL
