@@ -209,7 +209,6 @@ class CotizacionForm(forms.ModelForm):
             'cliente': forms.Select(attrs={'class': 'form-select form-select-sm'}),
             'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control form-control-sm', 'type': 'date'}),
         }
-
 class CotizacionDetalleForm(forms.ModelForm):
     # CORRECCIÓN: Definimos subtotal aquí porque NO es parte de la Base de Datos
     # Esto soluciona el "FieldError: Unknown field(s) (subtotal)"
@@ -228,7 +227,11 @@ class CotizacionDetalleForm(forms.ModelForm):
             'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'precio_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
-
+DetalleCotizacionFormSet = formset_factory(
+    CotizacionDetalleForm,
+    extra=1,
+    can_delete=True
+)
 # Factory para el detalle de Cotización
 CotizacionDetalleFormSet = inlineformset_factory(
     parent_model=Cotizacion,

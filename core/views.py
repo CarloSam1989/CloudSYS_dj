@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404
-from .services import crear_nueva_venta
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import redirect
+from django.core.management import call_command
 from datetime import date
 from .sri_services import generar_clave_acceso, IVA_MAP
 from erp_project.celery import app
@@ -15,7 +17,6 @@ from django.db.models.functions import TruncMonth
 from django.db import IntegrityError
 from core.models import *  # Ajusta el import según tu estructura
 from .forms import *
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
 import json
@@ -1713,3 +1714,14 @@ def cuenta_movimientos_view(request, pk):
         'movimientos': movimientos
     }
     return render(request, 'finanzas/movimientos.html', context)
+
+#backup_db.py
+@staff_member_required
+def ejecutar_backup(request):
+    try:
+        call_command('backup_db')
+        messages.success(request, "Backup generado y enviado correctamente.")
+    except Exception as e:
+        messages.error(request, f"Error al generar backup: {e}")
+
+    return redirect('dashboard')

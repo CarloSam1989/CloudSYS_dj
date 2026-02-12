@@ -109,3 +109,15 @@ class CuentaBancariaAdmin(admin.ModelAdmin):
 class TransaccionBancariaAdmin(admin.ModelAdmin):
     list_display = ('fecha', 'cuenta', 'tipo', 'monto')
     list_filter = ('tipo', 'fecha')
+
+@admin.register(Sistema)
+class SistemaAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre', 'activo')
+    list_filter = ('activo',)
+
+@admin.register(Perfil)
+class PerfilAdmin(admin.ModelAdmin):
+    list_display = ('user', 'empresa', 'activo')
+    list_filter = ('empresa', 'activo', 'sistemas')
+    autocomplete_fields = ['user']
+    filter_horizontal = ('sistemas',)

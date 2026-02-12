@@ -1,14 +1,50 @@
 # Ubicación: core/models.py
 from django.db import models
-from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib import messages
-from django.shortcuts import redirect
-from django.core.management import call_command
+from django.contrib.auth.models import AbstractUser
 from django.db.models import Sum
 from django.contrib.auth.models import User
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 import json
+# =========================================
+# SISTEMAS DISPONIBLES
+# =========================================
+class Sistema(models.Model):
+    TIPOS = (
+        ('GESTION', 'Sistema de Gestión'),
+        ('BANCO', 'Sistema Bancario'),
+        ('RESTAURANTE', 'Sistema de Restaurante'),
+    )
+
+    codigo = models.CharField(max_length=20, choices=TIPOS, unique=True)
+    nombre = models.CharField(max_length=100)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.nombre
+# =========================================
+# MODULOS DEL SISTEMA
+# =========================================
+class Modulo(models.Model):
+    nombre = models.CharField(max_length=100)
+    sistema = models.ForeignKey(Sistema, on_delete=models.CASCADE)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.nombre} - {self.sistema.nombre}"
+    
+class Usuario(AbstractUser):
+    activo = models.BooleanField(default=True)
+
+    sistemas = models.ManyToManyField(
+        Sistema,
+        blank=True,
+        related_name="usuarios"
+    )
+
+    def __str__(self):
+        return self.username
+
 # ==============================================================================
 # 1. MODELOS CENTRALES (MULTITENANCY Y CONFIGURACIÓN)
 # ==============================================================================
@@ -46,6 +82,9 @@ class Empresa(models.Model):
 class Perfil(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    sistemas = models.ManyToManyField(Sistema, blank=True)
+    activo = models.BooleanField(default=True)
+
 
     def __str__(self):
         return f"Perfil de {self.user.username} en {self.empresa.nombre}"
@@ -608,13 +647,3 @@ class TransaccionBancaria(models.Model):
             self.cuenta.save()
         super().save(*args, **kwargs)
 
-#backup_db.py
-@staff_member_required
-def ejecutar_backup(request):
-    try:
-        call_command('backup_db')
-        messages.success(request, "Backup generado y enviado correctamente.")
-    except Exception as e:
-        messages.error(request, f"Error al generar backup: {e}")
-
-    return redirect('dashboard')
