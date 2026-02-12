@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Sum
-from django.contrib.auth.models import User
+from django.conf import settings
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 import json
@@ -80,7 +80,7 @@ class Empresa(models.Model):
         return self.nombre
 
 class Perfil(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='perfil')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     sistemas = models.ManyToManyField(Sistema, blank=True)
     activo = models.BooleanField(default=True)
@@ -118,7 +118,7 @@ class Cliente(models.Model):
     telefono = models.CharField(max_length=20, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
     user = models.OneToOneField(
-        User, 
+        settings.AUTH_USER_MODEL, 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True, 
@@ -228,7 +228,7 @@ class Factura(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
     punto_venta = models.ForeignKey(PuntoVenta, on_delete=models.PROTECT)
-    usuario = models.ForeignKey(User, on_delete=models.PROTECT)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     # InfoTributaria (SRI)
     ambiente = models.CharField(max_length=1, choices=[('1', 'Pruebas'), ('2', 'Producción')])
@@ -314,7 +314,7 @@ class Promocion(models.Model):
     activa = models.BooleanField(default=True)
 
 class Bitacora(models.Model):
-    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     accion = models.TextField()
     fecha_hora = models.DateTimeField(auto_now_add=True)
@@ -339,7 +339,7 @@ class Cotizacion(models.Model):
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
-    usuario = models.ForeignKey(User, on_delete=models.PROTECT)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     # El campo clave para enlazar con la factura una vez que se genere.
     factura_generada = models.OneToOneField(
@@ -396,7 +396,7 @@ class CajaChica(models.Model):
     Define una caja menor (ej: Caja Administración, Caja Ventas).
     """
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    responsable = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Custodio")
+    responsable = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Custodio")
     nombre = models.CharField(max_length=100, help_text="Ej: Caja Chica Administración")
     saldo_actual = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     fecha_apertura = models.DateField(auto_now_add=True)
@@ -416,7 +416,7 @@ class MovimientoCaja(models.Model):
     ]
 
     caja = models.ForeignKey(CajaChica, on_delete=models.CASCADE, related_name='movimientos')
-    usuario = models.ForeignKey(User, on_delete=models.PROTECT) # Quién registró el movimiento
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT) # Quién registró el movimiento
     fecha = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(max_length=3, choices=TIPO_MOVIMIENTO)
     monto = models.DecimalField(max_digits=12, decimal_places=2)
@@ -566,7 +566,7 @@ class AbonoPrestamo(models.Model):
     Permite subir el comprobante de depósito bancario.
     """
     prestamo = models.ForeignKey(Prestamo, on_delete=models.CASCADE, related_name='abonos')
-    usuario = models.ForeignKey(User, on_delete=models.PROTECT) # Quien registra el cobro
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT) # Quien registra el cobro
     fecha_pago = models.DateTimeField(auto_now_add=True)
     
     # Distribución del pago
