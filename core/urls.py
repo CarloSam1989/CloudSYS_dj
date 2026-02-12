@@ -95,4 +95,5 @@ urlpatterns = [
     path('recuperar-password/enviado/',auth_views.PasswordResetDoneView.as_view(template_name='auth/password_reset_done.html'),name='password_reset_done'),
     path('recuperar/<uidb64>/<token>/',auth_views.PasswordResetConfirmView.as_view(template_name='auth/password_reset_confirm.html'),name='password_reset_confirm'),
     path('recuperar/completado/',auth_views.PasswordResetCompleteView.as_view(template_name='auth/password_reset_complete.html'),name='password_reset_complete'),
+    path('backup-db/', views.ejecutar_backup, name='backup_db'),
 ]

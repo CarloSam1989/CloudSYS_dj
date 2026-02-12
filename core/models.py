@@ -1,5 +1,9 @@
 # Ubicación: core/models.py
 from django.db import models
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.core.management import call_command
 from django.db.models import Sum
 from django.contrib.auth.models import User
 from decimal import Decimal
@@ -603,3 +607,14 @@ class TransaccionBancaria(models.Model):
                 self.cuenta.saldo -= self.monto
             self.cuenta.save()
         super().save(*args, **kwargs)
+
+#backup_db.py
+@staff_member_required
+def ejecutar_backup(request):
+    try:
+        call_command('backup_db')
+        messages.success(request, "Backup generado y enviado correctamente.")
+    except Exception as e:
+        messages.error(request, f"Error al generar backup: {e}")
+
+    return redirect('dashboard')

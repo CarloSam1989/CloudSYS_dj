@@ -152,6 +152,13 @@
                             </div>
 
                             {% if user.is_superuser %}
+                            <a class="nav-link" href="{% url 'backup_db' %}">
+                                <div class="sb-nav-link-icon">
+                                    <i class="fa-solid fa-database"></i>
+                                </div>
+                                Generar Backup
+                            </a>
+
                             <a class="nav-link" href="{% url 'admin:index' %}">
                                 <div class="sb-nav-link-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
                                 Admin Panel
