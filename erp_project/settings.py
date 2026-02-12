@@ -6,7 +6,7 @@ import environ
 # 1. CONFIGURACIÓN INICIAL Y DE ENTORNO
 # ==============================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent
-AUTH_USER_MODEL = 'core.Usuario'
+
 env = environ.Env(
     # Valores por defecto y tipo de dato
     DEBUG=(bool, False)
