@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import SetPasswordForm
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory, formset_factory, modelformset_factory
 from .models import *
@@ -316,3 +317,25 @@ class CuentaBancariaForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
             else:
                 field.widget.attrs['class'] = 'form-control'
+
+# correos #
+class CustomSetPasswordForm(SetPasswordForm):
+    new_password1 = forms.CharField(
+        label="Nueva contraseña",
+        widget=forms.PasswordInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': 'Nueva contraseña'
+            }
+        )
+    )
+
+    new_password2 = forms.CharField(
+        label="Confirmar contraseña",
+        widget=forms.PasswordInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': 'Confirmar contraseña'
+            }
+        )
+    )
