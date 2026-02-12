@@ -3,6 +3,7 @@ from pathlib import Path
 import environ
 
 
+
 # 1. CONFIGURACIÓN INICIAL Y DE ENTORNO
 # ==============================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent
