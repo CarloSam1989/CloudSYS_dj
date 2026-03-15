@@ -1,34 +1,87 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Clientes{% endblock %}
 
 {% block content %}
 <main>
     <div class="container-fluid px-4">
+
+        <style>
+            .start-collapsed .card-body {
+                display: none;
+            }
+
+            .toggle-card {
+                min-width: 32px;
+            }
+        </style>
+
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
             <h2 class="h4">Gestión de Clientes</h2>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
                 <li class="breadcrumb-item active">Clientes</li>
             </ol>
         </div>
 
-        <div class="card mb-3 shadow-sm">
-            <div class="card-header py-2 bg-light">
-                <small class="fw-bold"><i class="fas fa-user-plus me-1"></i>Nuevo Cliente</small>
+        <!-- IMPORTAR CLIENTES -->
+        <div class="card mb-4 start-collapsed">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-file-excel me-1"></i> Importar Clientes desde Excel
+                </span>
+                <button type="button" class="btn btn-sm btn-light toggle-card">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <form action="{% url 'core:clientes_importar' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <label class="form-label small fw-bold">Archivo Excel (.xlsx)</label>
+                    <div class="input-group input-group-sm mb-3" style="max-width: 420px;">
+                        <input type="file" name="archivo" accept=".xlsx" class="form-control form-control-sm" required>
+                        <button class="btn btn-success">
+                            <i class="fas fa-file-excel"></i> Importar Excel
+                        </button>
+                    </div>
+                </form>
+
+                <div class="col-12">
+                    <small class="text-muted">
+                        Columnas aceptadas del archivo:
+                        <b>Nombre</b>, <b>RUC</b>, <b>Teléfono</b>, <b>Email</b>, <b>Dirección</b>.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- NUEVO CLIENTE -->
+        <div class="card mb-3 shadow-sm start-collapsed">
+            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center">
+                <small class="fw-bold">
+                    <i class="fas fa-user-plus me-1"></i>Nuevo Cliente
+                </small>
+                <button type="button" class="btn btn-sm btn-light toggle-card">
+                    <i class="fas fa-plus"></i>
+                </button>
             </div>
             <div class="card-body p-3">
-                <form method="post">
+                <form method="post" action="{% url 'core:clientes' %}" id="formCliente">
                     {% csrf_token %}
                     <div class="row g-2">
-                        
+
                         <div class="col-md-5">
                             <label class="form-label small mb-1">Nombre</label>
-                            {{ form.nombre }} </div>
+                            {{ form.nombre }}
+                        </div>
+
                         <div class="col-md-3">
                             <label class="form-label small mb-1">RUC/Cédula</label>
                             {{ form.ruc }}
+                            <div id="feedback-ruc" class="invalid-feedback" style="font-size: 0.8em;"></div>
                         </div>
+
                         <div class="col-md-4">
                             <label class="form-label small mb-1">Teléfono</label>
                             {{ form.telefono }}
@@ -38,11 +91,13 @@
                             <label class="form-label small mb-1">Email</label>
                             {{ form.email }}
                         </div>
+
                         <div class="col-md-8">
                             <label class="form-label small mb-1">Dirección</label>
-                            {{ form.direccion }} </div>
+                            {{ form.direccion }}
+                        </div>
                     </div>
-                    
+
                     <div class="mt-2 text-end">
                         <button type="submit" class="btn btn-primary btn-sm px-4">
                             <i class="fas fa-save me-1"></i> Guardar
@@ -52,6 +107,7 @@
             </div>
         </div>
 
+        <!-- LISTADO -->
         <div class="card mb-4 shadow-sm">
             <div class="card-header py-2">
                 <small><i class="fas fa-users me-1"></i>Listado</small>
@@ -72,8 +128,8 @@
                         <tr>
                             <td>{{ cliente.nombre }}</td>
                             <td>{{ cliente.ruc }}</td>
-                            <td>{{ cliente.email }}</td>
-                            <td>{{ cliente.telefono }}</td>
+                            <td>{{ cliente.email|default_if_none:"" }}</td>
+                            <td>{{ cliente.telefono|default_if_none:"" }}</td>
                             <td>
                                 <a href="#" class="btn btn-xs btn-warning py-0" style="font-size: 0.8rem;">Editar</a>
                             </td>
@@ -83,6 +139,163 @@
                 </table>
             </div>
         </div>
+
     </div>
 </main>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // ==============================
+    // TOGGLE DE TARJETAS
+    // ==============================
+    document.querySelectorAll('.toggle-card').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const card = this.closest('.card');
+            const body = card.querySelector('.card-body');
+
+            if (!body) return;
+
+            const isHidden = window.getComputedStyle(body).display === 'none';
+
+            if (isHidden) {
+                body.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-minus"></i>';
+            } else {
+                body.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-plus"></i>';
+            }
+        });
+    });
+
+    // ==============================
+    // VALIDACIÓN RUC / CÉDULA
+    // ==============================
+    const inputRuc = document.getElementById('id_ruc');
+    const feedbackDiv = document.getElementById('feedback-ruc');
+    const form = document.getElementById('formCliente');
+
+    if (!inputRuc || !feedbackDiv || !form) return;
+
+    function validarDocumentoEcuador(valor) {
+        valor = valor.trim();
+
+        if (!/^\d+$/.test(valor)) {
+            return { valido: false, mensaje: "Solo se permiten números." };
+        }
+
+        if (valor.length === 10) {
+            return validarCedula(valor);
+        }
+
+        if (valor.length === 13) {
+            return validarRuc(valor);
+        }
+
+        return { valido: false, mensaje: "Debe tener 10 dígitos (cédula) o 13 dígitos (RUC)." };
+    }
+
+    function validarCedula(cedula) {
+        const provincia = parseInt(cedula.substring(0, 2));
+        if (!((provincia >= 1 && provincia <= 24) || provincia === 30)) {
+            return { valido: false, mensaje: "Código de provincia inválido." };
+        }
+
+        const tercerDigito = parseInt(cedula.charAt(2));
+        if (tercerDigito >= 6) {
+            return { valido: false, mensaje: "La cédula tiene un tercer dígito inválido." };
+        }
+
+        let total = 0;
+        const coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+
+        for (let i = 0; i < 9; i++) {
+            let valor = parseInt(cedula.charAt(i)) * coeficientes[i];
+            total += (valor >= 10) ? (valor - 9) : valor;
+        }
+
+        const digitoVerificador = parseInt(cedula.charAt(9));
+        const decenaSuperior = Math.ceil(total / 10) * 10;
+        let resultado = decenaSuperior - total;
+        if (resultado === 10) resultado = 0;
+
+        return (resultado === digitoVerificador)
+            ? { valido: true, mensaje: "Cédula válida." }
+            : { valido: false, mensaje: "Cédula inválida." };
+    }
+
+    function validarRuc(ruc) {
+        const provincia = parseInt(ruc.substring(0, 2));
+        if (!((provincia >= 1 && provincia <= 24) || provincia === 30)) {
+            return { valido: false, mensaje: "Código de provincia inválido." };
+        }
+
+        if (ruc.substring(10, 13) !== '001') {
+            return { valido: false, mensaje: "El RUC debe terminar en 001." };
+        }
+
+        const tercerDigito = parseInt(ruc.charAt(2));
+
+        if (tercerDigito < 6) {
+            return validarCedula(ruc.substring(0, 10));
+        } else if (tercerDigito === 6 || tercerDigito === 9) {
+            return { valido: true, mensaje: "RUC válido." };
+        } else {
+            return { valido: false, mensaje: "Tercer dígito inválido." };
+        }
+    }
+
+    inputRuc.addEventListener('blur', function() {
+        const valor = this.value.trim();
+
+        this.classList.remove('is-invalid', 'is-valid');
+        feedbackDiv.textContent = '';
+
+        if (valor.length > 0) {
+            const resultado = validarDocumentoEcuador(valor);
+            if (resultado.valido) {
+                this.classList.add('is-valid');
+            } else {
+                this.classList.add('is-invalid');
+                feedbackDiv.textContent = resultado.mensaje;
+            }
+        }
+    });
+
+    inputRuc.addEventListener('input', function() {
+        if (this.classList.contains('is-invalid')) {
+            this.classList.remove('is-invalid');
+            feedbackDiv.textContent = '';
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        const valor = inputRuc.value.trim();
+
+        if (valor.length > 0) {
+            const resultado = validarDocumentoEcuador(valor);
+            if (!resultado.valido) {
+                e.preventDefault();
+                inputRuc.classList.add('is-invalid');
+                feedbackDiv.textContent = resultado.mensaje;
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Documento incorrecto',
+                        text: resultado.mensaje
+                    });
+                } else {
+                    alert('Error: ' + resultado.mensaje);
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

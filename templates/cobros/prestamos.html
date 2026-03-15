@@ -1,0 +1,240 @@
+{% extends "cobros/base_cobros.html" %}
+{% load humanize %}
+
+{% block title %}Préstamos{% endblock %}
+
+{% block content %}
+<style>
+    body.card-open {
+        overflow: hidden;
+    }
+
+    #cardFormularioPrestamo .card-body.oculto {
+        display: none;
+    }
+
+    #cardFormularioPrestamo.card-maximizada {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        z-index: 1080;
+        margin: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: auto;
+        background: #fff;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,.25);
+    }
+
+    .acciones-btns .btn {
+        margin-right: 4px;
+        margin-bottom: 4px;
+    }
+</style>
+
+<div class="card mb-4 border-primary" id="cardFormularioPrestamo">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+            <i class="fas fa-money-bill-wave me-2"></i>
+            Registrar Préstamo
+        </span>
+
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-light toggle-card" title="Minimizar">
+                <i class="fas fa-minus"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-light" id="btnMaximizarPrestamo" title="Maximizar">
+                <i class="fas fa-expand"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Cliente</label>
+                    {{ form.cliente }}
+                    {% if form.cliente.errors %}
+                        <div class="text-danger small">{{ form.cliente.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Fecha</label>
+                    {{ form.fecha }}
+                    {% if form.fecha.errors %}
+                        <div class="text-danger small">{{ form.fecha.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado</label>
+                    {{ form.estado }}
+                    {% if form.estado.errors %}
+                        <div class="text-danger small">{{ form.estado.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Monto prestado</label>
+                    {{ form.monto }}
+                    {% if form.monto.errors %}
+                        <div class="text-danger small">{{ form.monto.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Interés (%)</label>
+                    {{ form.interes }}
+                    {% if form.interes.errors %}
+                        <div class="text-danger small">{{ form.interes.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-bold">Observación</label>
+                    {{ form.observacion }}
+                    {% if form.observacion.errors %}
+                        <div class="text-danger small">{{ form.observacion.errors }}</div>
+                    {% endif %}
+                </div>
+
+                {% if form.non_field_errors %}
+                <div class="col-12">
+                    <div class="alert alert-danger mb-0">
+                        {{ form.non_field_errors }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    <button type="reset" class="btn btn-secondary">
+                        Limpiar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <strong>Préstamos registrados</strong>
+        <small class="text-muted">Total: {{ prestamos|length }}</small>
+    </div>
+
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Número</th>
+                        <th>Cliente</th>
+                        <th>Monto</th>
+                        <th>Total</th>
+                        <th>Saldo</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in prestamos %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ p.numero }}</td>
+                        <td>{{ p.cliente }}</td>
+                        <td>{{ p.monto|floatformat:2 }}</td>
+                        <td>{{ p.total|floatformat:2 }}</td>
+                        <td>{{ p.saldo|floatformat:2 }}</td>
+                        <td>
+                            {% if p.estado == 'ACTIVO' %}
+                                <span class="badge bg-primary">Activo</span>
+                            {% elif p.estado == 'PAGADO' %}
+                                <span class="badge bg-success">Pagado</span>
+                            {% elif p.estado == 'VENCIDO' %}
+                                <span class="badge bg-warning text-dark">Vencido</span>
+                            {% elif p.estado == 'ANULADO' %}
+                                <span class="badge bg-danger">Anulado</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ p.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ p.fecha|date:"d/m/Y" }}</td>
+                        <td class="text-end acciones-btns">
+                            <a href="#" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-success" title="Registrar abono">
+                                <i class="fas fa-money-check-dollar"></i>
+                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-warning" title="Editar">
+                                <i class="fas fa-pen"></i>
+                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-danger" title="Anular">
+                                <i class="fas fa-ban"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            No hay préstamos registrados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('cardFormularioPrestamo');
+    const body = card ? card.querySelector('.card-body') : null;
+    const btnMin = card ? card.querySelector('.toggle-card') : null;
+    const btnMax = document.getElementById('btnMaximizarPrestamo');
+
+    if (btnMin && body) {
+        btnMin.addEventListener('click', function () {
+            body.classList.toggle('oculto');
+
+            if (body.classList.contains('oculto')) {
+                this.innerHTML = '<i class="fas fa-plus"></i>';
+                this.setAttribute('title', 'Expandir');
+            } else {
+                this.innerHTML = '<i class="fas fa-minus"></i>';
+                this.setAttribute('title', 'Minimizar');
+            }
+        });
+    }
+
+    if (btnMax && card) {
+        btnMax.addEventListener('click', function () {
+            card.classList.toggle('card-maximizada');
+            document.body.classList.toggle('card-open');
+
+            if (card.classList.contains('card-maximizada')) {
+                this.innerHTML = '<i class="fas fa-compress"></i>';
+                this.setAttribute('title', 'Restaurar');
+            } else {
+                this.innerHTML = '<i class="fas fa-expand"></i>';
+                this.setAttribute('title', 'Maximizar');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

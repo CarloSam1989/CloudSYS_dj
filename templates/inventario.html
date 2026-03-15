@@ -4,6 +4,7 @@
 {% block title %}Gestión de Inventario{% endblock %}
 
 {% block content %}
+{% load l10n %}
 <style>
     .swal2-container {
         z-index: 20000 !important;
@@ -39,21 +40,77 @@
     }
 </style>
 <main>
+    {% if messages %}
+    <div class="container-fluid px-4 mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'debug' %}secondary{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
             <h2 class="h4">Inventario de Productos</h2>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
                 <li class="breadcrumb-item active">Inventario</li>
             </ol>
         </div>
-
-        <div class="card mb-4 border-primary">
-            <div class="card-header bg-light ">
-                <i class="fas fa-plus-circle me-1"></i> Registrar Nuevo Producto
+        <div class="card mb-4 start-collapsed">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-file-excel me-1"></i> Importar Productos desde Excel
+                </span>
+                <button class="btn btn-sm btn-light toggle-card">
+                    <i class="fas fa-minus"></i>
+                </button>
             </div>
             <div class="card-body">
-                <form method="POST" action="{% url 'inventario' %}" id="formProductoMain">
+                <form method="POST" action="{% url 'core:inventario_importar' %}" enctype="multipart/form-data" class="row g-2 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">Archivo Excel (.xlsx)</label>
+                    <input type="file" name="archivo_excel" accept=".xlsx" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-6 text-end">
+                    <button type="submit" class="btn btn-success btn-sm px-4">
+                    <i class="fas fa-upload me-1"></i> Importar
+                    </button>
+                </div>
+
+                <div class="col-12">
+                    <small class="text-muted">
+                        Columnas aceptadas del reporte: <b>CÓDIGO</b>, <b>PRODUCTO</b>, <b>CATEGORÍA</b>, <b>PROVEEDOR</b>, <b>STOCK</b>, <b>COSTO</b>, <b>PRECIO 1</b>, <b>PRECIO 2</b>, <b>PRECIO 3</b>.
+                    </small>
+                </div>
+                 <div class="col-md-6">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="vaciar_antes" id="vaciar_antes" value="1">
+                        <label class="form-check-label small fw-bold text-danger" for="vaciar_antes">
+                            Vaciar inventario actual antes de importar
+                        </label>
+                    </div>
+                    <small class="text-muted">
+                        Esto eliminará todos los productos actuales de la empresa y cargará el reporte desde cero.
+                    </small>
+                </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4 border-primary start-collapsed">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-plus-circle me-1"></i> Registrar Nuevo Producto
+                </span>
+                <button type="button" class="btn btn-sm btn-light toggle-card" title="Minimizar">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{% url 'core:inventario' %}" id="formProductoMain">
                     {% csrf_token %}
                     <div class="row g-3">
                         <div class="col-md-2">
@@ -68,8 +125,12 @@
                             <label class="form-label small fw-bold">Categoría</label>
                             <div class="input-group input-group-sm">
                                 {{ form.categoria }}
-                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-bs-toggle="modal" data-bs-target="#modalCategoria">
-                                    <i class="fas fa-plus"></i>
+                                <button class="btn btn-outline-secondary btn-add-ajax"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalCategoria"
+                                        data-target-select="{{ form.categoria.id_for_label }}">
+                                <i class="fas fa-plus"></i>
                                 </button>
                             </div>
                         </div>
@@ -84,8 +145,12 @@
                             <label class="form-label small fw-bold">Marca</label>
                             <div class="input-group input-group-sm">
                                 {{ form.marca }}
-                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-bs-toggle="modal" data-bs-target="#modalMarca">
-                                    <i class="fas fa-plus"></i>
+                                <button class="btn btn-outline-secondary btn-add-ajax"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalMarca"
+                                        data-target-select="{{ form.marca.id_for_label }}">
+                                <i class="fas fa-plus"></i>
                                 </button>
                             </div>
                         </div>
@@ -93,8 +158,12 @@
                             <label class="form-label small fw-bold">Modelo</label>
                             <div class="input-group input-group-sm">
                                 {{ form.modelo }}
-                                <button class="btn btn-outline-secondary btn-add-ajax" type="button" data-bs-toggle="modal" data-bs-target="#modalModelo">
-                                    <i class="fas fa-plus"></i>
+                                <button class="btn btn-outline-secondary btn-add-ajax"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalModelo"
+                                        data-target-select="{{ form.modelo.id_for_label }}">
+                                <i class="fas fa-plus"></i>
                                 </button>
                             </div>
                         </div>
@@ -152,8 +221,26 @@
                             </td>
                             <td>${{ producto.precio|floatformat:2 }}</td>
                             <td>
-                                <a href="#" class="text-warning me-2"><i class="fas fa-edit"></i></a>
-                                <a href="#" class="text-danger"><i class="fas fa-trash"></i></a>
+                                <a href="#"
+                                    class="text-warning me-2 btn-editar-producto"
+                                    data-id="{{ producto.id }}"
+                                    data-codigo="{{ producto.codigo }}"
+                                    data-nombre="{{ producto.nombre }}"
+                                    data-categoria="{% if producto.categoria %}{{ producto.categoria.id }}{% endif %}"
+                                    data-marca="{% if producto.marca %}{{ producto.marca.id }}{% endif %}"
+                                    data-modelo="{% if producto.modelo %}{{ producto.modelo.id }}{% endif %}"
+                                    data-stock="{{ producto.stock|unlocalize }}"
+                                    data-costo="{{ producto.costo|unlocalize }}"
+                                    data-precio1="{{ producto.precio_1|unlocalize }}"
+                                    data-precio2="{{ producto.precio_2|unlocalize }}"
+                                    data-precio3="{{ producto.precio_3|unlocalize }}"
+                                    data-iva="{{ producto.maneja_iva|yesno:'1,0' }}"
+                                    title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'core:eliminar_producto' producto.id %}" class="text-danger">
+                                    <i class="fas fa-trash"></i>
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -163,99 +250,464 @@
         </div>
     </div>
 </main>
-
+<!-- MODAL CATEGORIA -->
 <div class="modal fade" id="modalCategoria" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
-        <form id="formCategoria" action="{% url 'agregar_categoria_ajax' %}" class="modal-content">
-            <div class="modal-header bg-secondary text-white py-2"><h6 class="modal-title">Nueva Categoría</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body"><input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Categoría" required></div>
-            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
-        </form>
-    </div>
+  <div class="modal-dialog modal-sm">
+    <form id="formCategoria" action="{% url 'core:agregar_categoria_ajax' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header bg-secondary text-white py-2">
+        <h6 class="modal-title">Nueva Categoría</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Categoría" required>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
+      </div>
+    </form>
+  </div>
 </div>
-
+<!-- MODAL MARCA -->
 <div class="modal fade" id="modalMarca" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
-        <form id="formMarca" action="{% url 'agregar_marca_ajax' %}" class="modal-content">
-            <div class="modal-header bg-secondary text-white py-2"><h6 class="modal-title">Nueva Marca</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body"><input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Marca" required></div>
-            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
-        </form>
-    </div>
+  <div class="modal-dialog modal-sm">
+    <form id="formMarca" action="{% url 'core:agregar_marca_ajax' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header bg-secondary text-white py-2">
+        <h6 class="modal-title">Nueva Marca</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Marca" required>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
+      </div>
+    </form>
+  </div>
 </div>
-
+<!-- MODAL MODELO -->
 <div class="modal fade" id="modalModelo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
-        <form id="formModelo" action="{% url 'agregar_modelo_ajax' %}" class="modal-content">
-            <div class="modal-header bg-secondary text-white py-2"><h6 class="modal-title">Nuevo Modelo</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <select name="marca" id="id_marca_modelo_modal" class="form-select form-select-sm mb-2" required></select>
-                <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Modelo" required>
+  <div class="modal-dialog modal-sm">
+    <form id="formModelo" action="{% url 'core:agregar_modelo_ajax' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header bg-secondary text-white py-2">
+        <h6 class="modal-title">Nuevo Modelo</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <select name="marca" id="id_marca_modelo_modal" class="form-select form-select-sm mb-2" required></select>
+        <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Nombre Modelo" required>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal fade" id="modalEditarProducto" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="POST" id="formEditarProducto" class="modal-content">
+        {% csrf_token %}
+            <div class="modal-header bg-dark text-white">
+            <h5 class="modal-title">
+            <i class="fas fa-edit"></i> Editar Producto
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Código</label>
+                        <input type="text" name="codigo" id="edit_codigo" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold">Nombre</label>
+                        <input type="text" name="nombre" id="edit_nombre" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Categoría</label>
+                        <div class="input-group input-group-sm">
+                            <select name="categoria" id="edit_categoria" class="form-select form-select-sm">
+                            {% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+                            </select>
+                            <button class="btn btn-outline-secondary btn-add-ajax"
+                                    type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalCategoria"
+                                    data-target-select="edit_categoria">
+                            <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Marca</label>
+                        <div class="input-group input-group-sm">
+                            <select name="marca" id="edit_marca" class="form-select form-select-sm">
+                            {% for m in marcas %}<option value="{{ m.id }}">{{ m.nombre }}</option>{% endfor %}
+                            </select>
+                            <button class="btn btn-outline-secondary btn-add-ajax"
+                                    type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalMarca"
+                                    data-target-select="edit_marca">
+                            <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Modelo</label>
+                        <div class="input-group input-group-sm">
+                            <select name="modelo" id="edit_modelo" class="form-select form-select-sm">
+                            {% for mo in modelos %}<option value="{{ mo.id }}">{{ mo.nombre }}</option>{% endfor %}
+                            </select>
+                            <button class="btn btn-outline-secondary btn-add-ajax"
+                                    type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalModelo"
+                                    data-target-select="edit_modelo">
+                            <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Precio 1</label>
+                        <input type="number" step="0.0001" name="precio_1" id="edit_precio_1" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Precio 2</label>
+                        <input type="number" step="0.0001" name="precio_2" id="edit_precio_2" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Precio 3</label>
+                        <input type="number" step="0.0001" name="precio_3" id="edit_precio_3" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Stock</label>
+                        <input type="number" step="0.0001" name="stock" id="edit_stock" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Costo</label>
+                        <input type="number" step="0.0001" name="costo" id="edit_costo" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input type="checkbox" name="maneja_iva" id="edit_iva" class="form-check-input">
+                                <label class="form-check-label small">IVA</label>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                Cancelar
+                </button>
+                <button type="submit" class="btn btn-warning btn-sm">
+                <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
         </form>
     </div>
 </div>
-
 {% endblock %}
-
 {% block javascript %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // 1. SELECT2 INICIALIZACIÓN (Directa, sin esperar modal)
-    // Asumiendo que usas jQuery para select2
-    $('#{{ form.categoria.id_for_label }}').select2({ theme: "bootstrap-5", width: '100%', placeholder: 'Seleccionar...' });
-    $('#{{ form.marca.id_for_label }}').select2({ theme: "bootstrap-5", width: '100%', placeholder: 'Seleccionar...' });
-    $('#{{ form.modelo.id_for_label }}').select2({ theme: "bootstrap-5", width: '100%', placeholder: 'Seleccionar...' });
+document.addEventListener('DOMContentLoaded', function () {
 
-    // 2. LÓGICA DE MODALES AUXILIARES (AJAX)
-    // Ya no necesitamos ocultar el principal, porque el principal es la página misma.
-    
-    // Copiar marcas al modal de modelo cuando se abre
-    const modalModeloEl = document.getElementById('modalModelo');
-    modalModeloEl.addEventListener('show.bs.modal', function() {
-        const marcaPrincipal = document.getElementById('{{ form.marca.id_for_label }}');
-        const marcaModal = document.getElementById('id_marca_modelo_modal');
-        // Copiamos las opciones
-        marcaModal.innerHTML = ''; 
-        Array.from(marcaPrincipal.options).forEach(opt => {
-            if(opt.value) marcaModal.add(new Option(opt.text, opt.value));
-        });
-        // Si hay una seleccionada en el principal, la pre-seleccionamos en el modal
-        if(marcaPrincipal.value) marcaModal.value = marcaPrincipal.value;
-    });
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
 
-    function setupAjaxForm(formId, targetSelectId, modalId) {
-        const form = document.getElementById(formId);
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Agregar al select principal
-                    const newOption = new Option(data.nombre, data.id, true, true);
-                    const select = document.getElementById(targetSelectId);
-                    select.add(newOption);
-                    $(select).trigger('change'); // Actualizar Select2
+  const csrftoken = getCookie('csrftoken');
 
-                    // Cerrar modal auxiliar
-                    bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
-                    form.reset();
-                    Swal.fire({ icon: 'success', title: 'Agregado', timer: 1000, showConfirmButton: false });
-                }
-            });
-        });
+  function initSelect2(selector, dropdownParent = null) {
+    if (!window.$ || !$.fn.select2) return;
+
+    const $el = $(selector);
+    if (!$el.length) return;
+
+    if ($el.hasClass('select2-hidden-accessible')) {
+      $el.select2('destroy');
     }
 
-    setupAjaxForm('formCategoria', '{{ form.categoria.id_for_label }}', 'modalCategoria');
-    setupAjaxForm('formMarca', '{{ form.marca.id_for_label }}', 'modalMarca');
-    setupAjaxForm('formModelo', '{{ form.modelo.id_for_label }}', 'modalModelo');
+    const config = {
+      theme: 'bootstrap-5',
+      width: '100%',
+      placeholder: 'Seleccionar...',
+      dropdownAutoWidth: true
+    };
+
+    if (dropdownParent) {
+      config.dropdownParent = $(dropdownParent);
+    }
+
+    $el.select2(config);
+  }
+
+  // Select2 formulario principal
+  initSelect2('#{{ form.categoria.id_for_label }}');
+  initSelect2('#{{ form.marca.id_for_label }}');
+  initSelect2('#{{ form.modelo.id_for_label }}');
+
+  // Select2 modal editar
+  const modalEditarEl = document.getElementById('modalEditarProducto');
+  if (modalEditarEl) {
+    modalEditarEl.addEventListener('shown.bs.modal', function () {
+      initSelect2('#edit_categoria', '#modalEditarProducto');
+      initSelect2('#edit_marca', '#modalEditarProducto');
+      initSelect2('#edit_modelo', '#modalEditarProducto');
+    });
+  }
+
+  let lastTargetSelectId = null;
+  let reopenEditModal = false;
+
+  // Detectar desde qué select se abrió el modal hijo
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-add-ajax');
+    if (!btn) return;
+
+    lastTargetSelectId = btn.dataset.targetSelect || null;
+
+    // Si se abrió desde el modal editar, luego hay que reabrirlo
+    reopenEditModal = ['edit_categoria', 'edit_marca', 'edit_modelo'].includes(lastTargetSelectId);
+  });
+
+  // Copiar marcas al modal de modelo
+  const modalModeloEl = document.getElementById('modalModelo');
+  if (modalModeloEl) {
+    modalModeloEl.addEventListener('show.bs.modal', function () {
+      const marcaModal = document.getElementById('id_marca_modelo_modal');
+      if (!marcaModal) return;
+
+      const marcaNuevo = document.getElementById('{{ form.marca.id_for_label }}');
+      const marcaEditar = document.getElementById('edit_marca');
+
+      marcaModal.innerHTML = '';
+
+      let sourceSelect = marcaNuevo;
+      if (reopenEditModal && marcaEditar) {
+        sourceSelect = marcaEditar;
+      }
+
+      if (!sourceSelect) return;
+
+      Array.from(sourceSelect.options).forEach(opt => {
+        if (opt.value !== '') {
+          marcaModal.add(new Option(opt.text, opt.value));
+        }
+      });
+
+      if (sourceSelect.value) {
+        marcaModal.value = sourceSelect.value;
+      }
+    });
+  }
+
+  function addOptionIfNotExists(selectId, value, text, makeSelected = false) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const exists = Array.from(select.options).some(opt => String(opt.value) === String(value));
+    if (!exists) {
+      select.add(new Option(text, value, false, false));
+    }
+
+    if (makeSelected) {
+      select.value = value;
+    }
+
+    if (window.$ && $(select).hasClass('select2-hidden-accessible')) {
+      $(select).val(select.value).trigger('change');
+    }
+  }
+
+  function reopenEditarModalIfNeeded() {
+    if (!reopenEditModal) return;
+
+    const editModalEl = document.getElementById('modalEditarProducto');
+    if (!editModalEl) return;
+
+    setTimeout(() => {
+      const editModal = bootstrap.Modal.getOrCreateInstance(editModalEl);
+      editModal.show();
+    }, 250);
+  }
+
+  function setupAjaxForm(formId, modalId, type) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+          'X-CSRFToken': csrftoken
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status !== 'success') {
+          if (window.Swal) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'No se pudo guardar.'
+            });
+          }
+          return;
+        }
+
+        let mainSelectId = null;
+        let editSelectId = null;
+
+        if (type === 'categoria') {
+          mainSelectId = '{{ form.categoria.id_for_label }}';
+          editSelectId = 'edit_categoria';
+        } else if (type === 'marca') {
+          mainSelectId = '{{ form.marca.id_for_label }}';
+          editSelectId = 'edit_marca';
+        } else if (type === 'modelo') {
+          mainSelectId = '{{ form.modelo.id_for_label }}';
+          editSelectId = 'edit_modelo';
+        }
+
+        // Agregar a ambos selects
+        addOptionIfNotExists(mainSelectId, data.id, data.nombre, lastTargetSelectId === mainSelectId);
+        addOptionIfNotExists(editSelectId, data.id, data.nombre, lastTargetSelectId === editSelectId);
+
+        // Cerrar modal hijo
+        const childModalEl = document.getElementById(modalId);
+        if (childModalEl) {
+          const childModal = bootstrap.Modal.getInstance(childModalEl);
+          if (childModal) childModal.hide();
+        }
+
+        form.reset();
+
+        // Reabrir modal editar si corresponde
+        reopenEditarModalIfNeeded();
+
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Agregado',
+            timer: 900,
+            showConfirmButton: false
+          });
+        }
+      })
+      .catch(() => {
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error de red o servidor.'
+          });
+        }
+      });
+    });
+  }
+
+  setupAjaxForm('formCategoria', 'modalCategoria', 'categoria');
+  setupAjaxForm('formMarca', 'modalMarca', 'marca');
+  setupAjaxForm('formModelo', 'modalModelo', 'modelo');
+
+  // Abrir modal editar
+  
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-editar-producto');
+        if (!btn) return;
+
+        e.preventDefault();
+
+        document.getElementById('edit_codigo').value = btn.dataset.codigo || '';
+        document.getElementById('edit_nombre').value = btn.dataset.nombre || '';
+        document.getElementById('edit_stock').value = btn.dataset.stock || '0';
+        document.getElementById('edit_costo').value = btn.dataset.costo || '0';
+        document.getElementById('edit_precio_1').value = btn.dataset.precio1 || '0';
+        document.getElementById('edit_precio_2').value = btn.dataset.precio2 || '0';
+        document.getElementById('edit_precio_3').value = btn.dataset.precio3 || '0';
+        document.getElementById('edit_iva').checked = btn.dataset.iva === '1';
+
+        document.getElementById('edit_categoria').value = btn.dataset.categoria || '';
+        document.getElementById('edit_marca').value = btn.dataset.marca || '';
+        document.getElementById('edit_modelo').value = btn.dataset.modelo || '';
+
+        if (window.$ && $.fn.select2) {
+            $('#edit_categoria').trigger('change');
+            $('#edit_marca').trigger('change');
+            $('#edit_modelo').trigger('change');
+        }
+
+        document.getElementById('formEditarProducto').action = `/inventario/${btn.dataset.id}/editar/`;
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarProducto'));
+        modal.show();
+    });  
+
+    document.querySelectorAll('.start-collapsed').forEach(card => {
+
+        const body = card.querySelector('.card-body');
+        const btn = card.querySelector('.toggle-card');
+
+        if(body){
+            body.style.display = 'none';
+        }
+
+        if(btn){
+            btn.innerHTML = '<i class="fas fa-plus"></i>';
+        }
+
+    });
+    // ===========================
+    // TOGGLE CARDS
+    // ===========================
+    document.querySelectorAll('.toggle-card').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const card = this.closest('.card');
+            const body = card ? card.querySelector('.card-body') : null;
+            if (!body) return;
+
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-minus"></i>';
+            } else {
+                body.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-plus"></i>';
+            }
+        });
+    });
+
+    // ===========================
+    // INICIAR TARJETAS MINIMIZADAS
+    // ===========================
+    document.querySelectorAll('.start-collapsed').forEach(card => {
+        const body = card.querySelector('.card-body');
+        const btn = card.querySelector('.toggle-card');
+
+        if (body) {
+            body.style.display = 'none';
+        }
+
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-plus"></i>';
+        }
+    });
 });
 </script>
 {% endblock %}

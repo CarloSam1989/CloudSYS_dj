@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Editar Producto{% endblock %}
+
+{% block content %}
+<main>
+<div class="container-fluid px-4">
+
+    <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+        <h2 class="h4">Editar Producto</h2>
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'core:inventario' %}">Inventario</a></li>
+            <li class="breadcrumb-item active">Editar</li>
+        </ol>
+    </div>
+
+    <div class="card border-warning">
+        <div class="card-header bg-warning text-dark">
+            <i class="fas fa-edit me-1"></i> Editar Producto
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="row g-3">
+
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Código</label>
+                        {{ form.codigo }}
+                    </div>
+
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold">Nombre</label>
+                        {{ form.nombre }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Categoría</label>
+                        {{ form.categoria }}
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            {{ form.maneja_iva }}
+                            <label class="form-check-label small">
+                                Grava IVA
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Marca</label>
+                        {{ form.marca }}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Modelo</label>
+                        {{ form.modelo }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Stock</label>
+                        {{ form.stock }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Costo</label>
+                        {{ form.costo }}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Precio</label>
+                        {{ form.precio }}
+                    </div>
+
+                </div>
+
+                <div class="mt-4 text-end">
+
+                    <a href="{% url 'core:inventario' %}" class="btn btn-secondary btn-sm">
+                        Cancelar
+                    </a>
+
+                    <button type="submit" class="btn btn-warning btn-sm px-4">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+</main>
+{% endblock %}

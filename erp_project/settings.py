@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'core',
+    'cobros',
 ]
 
 MIDDLEWARE = [
@@ -142,3 +143,6 @@ DEFAULT_FROM_EMAIL = f"SYSCLOUD Sistema Integrador <{EMAIL_HOST_USER}>"
 # 12. CONFIGURACIÓN FINAL
 # ==============================================================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+LOGIN_URL = "core:login"
+LOGIN_REDIRECT_URL = "core:dashboard"
+LOGOUT_REDIRECT_URL = "core:login"

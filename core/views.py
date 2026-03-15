@@ -6,7 +6,7 @@ from django.core.management import call_command
 from datetime import date
 from .sri_services import generar_clave_acceso, IVA_MAP
 from erp_project.celery import app
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -29,6 +29,9 @@ from weasyprint import HTML
 from .models import *
 from .forms import *
 import time
+import openpyxl
+from django.conf import settings
+from functools import wraps
 # ------------------------------
 # LOGIN Y LOGOUT
 # ------------------------------
@@ -60,146 +63,237 @@ def home_banking_view(request):
         })
 
 def login_view(request):
-    """ Vista para iniciar sesión """
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('core:dashboard')
 
     if request.method == 'POST':
-        username_from_form = request.POST.get('username')
-        password_from_form = request.POST.get('password')
+        username_from_form = request.POST.get('username', '').strip()
+        password_from_form = request.POST.get('password', '').strip()
 
         user = authenticate(request, username=username_from_form, password=password_from_form)
 
-        if user is not None:
-            login(request, user)
-            return redirect('dashboard')
-        else:
+        if user is None:
             messages.error(request, 'Usuario o contraseña incorrectos.')
-            return render(request, 'login.html')
+            return render(request, 'core/login.html')
 
-    return render(request, 'login.html')
+        if not user.activo:
+            messages.error(request, 'Tu usuario está inactivo.')
+            return render(request, 'core/login.html')
+
+        login(request, user)
+
+        # CLIENTE BANCO
+        if hasattr(user, 'perfil_cliente') and user.perfil_cliente is not None:
+            return redirect('core:home_banking')
+
+        # SUPERUSUARIO
+        if user.is_superuser:
+            return redirect('core:dashboard')
+
+        # USUARIO ERP
+        if hasattr(user, 'perfil') and user.perfil is not None:
+            if not user.perfil.activo:
+                logout(request)
+                messages.error(request, 'Tu perfil está inactivo.')
+                return render(request, 'core/login.html')
+
+            if not user.perfil.empresa.activa:
+                logout(request)
+                messages.error(request, 'La empresa asociada está inactiva.')
+                return render(request, 'core/login.html')
+
+            return redirect('core:dashboard')
+
+        logout(request)
+        messages.error(request, 'Tu usuario no tiene perfil asignado.')
+        return render(request, 'core/login.html')
+
+    return render(request, 'core/login.html')
 
 def logout_view(request):
     """ Cierra sesión y redirige al login """
     logout(request)
     messages.success(request, 'Has cerrado sesión exitosamente.')
-    return redirect('login')
+    return redirect('core:login')
 
+def usuario_tiene_modulo(user, nombre_modulo):
+    if user.is_superuser:
+        return True
+
+    if not hasattr(user, 'perfil') or user.perfil is None:
+        return False
+
+    perfil = user.perfil
+
+    if not perfil.activo:
+        return False
+
+    if not perfil.empresa or not perfil.empresa.activa:
+        return False
+
+    tiene_usuario = perfil.modulos_asignados.filter(
+        modulo__nombre__iexact=nombre_modulo,
+        activo=True,
+        modulo__activo=True
+    ).exists()
+
+    tiene_empresa = perfil.empresa.modulos_habilitados.filter(
+        modulo__nombre__iexact=nombre_modulo,
+        activo=True,
+        modulo__activo=True
+    ).exists()
+
+    return tiene_usuario and tiene_empresa
+
+def requiere_modulo(nombre_modulo):
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('core:login')
+
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+
+            if not request.user.activo:
+                messages.error(request, 'Tu usuario está inactivo.')
+                logout(request)
+                return redirect('core:login')
+
+            if not hasattr(request.user, 'perfil') or request.user.perfil is None:
+                messages.error(request, 'Tu usuario no tiene perfil asignado.')
+                logout(request)
+                return redirect('core:login')
+
+            if not request.user.perfil.activo:
+                messages.error(request, 'Tu perfil está inactivo.')
+                logout(request)
+                return redirect('core:login')
+
+            if not request.user.perfil.empresa.activa:
+                messages.error(request, 'La empresa asociada está inactiva.')
+                logout(request)
+                return redirect('core:login')
+
+            if not usuario_tiene_modulo(request.user, nombre_modulo):
+                messages.error(request, f'No tienes permiso para acceder al módulo {nombre_modulo}.')
+                return redirect('core:dashboard')
+
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
 # ------------------------------
 # DASHBOARD
 # ------------------------------
 
 @login_required
 def dashboard_view(request):
-    """
-    Vista híbrida:
-    1. Si es Cliente Banco -> Lo manda a su Home Banking.
-    2. Si es Empleado ERP -> Le calcula y muestra el Dashboard Contable.
-    """
-    
-    # --- 1. FILTRO DE BANQUITO (PRIORIDAD ALTA) ---
-    # Si el usuario es un Cliente del Banco, lo sacamos de aquí inmediatamente.
+    if not request.user.activo:
+        messages.error(request, 'Tu usuario está inactivo.')
+        logout(request)
+        return redirect('core:login')
+
+    # Si es cliente bancario
     if hasattr(request.user, 'perfil_cliente') and request.user.perfil_cliente is not None:
-        return redirect('home_banking')
+        return redirect('core:home_banking')
 
-    # --- 2. LÓGICA ERP (TU CÓDIGO MEJORADO) ---
-    try:
-        # Intentamos obtener la empresa. Si falla aquí, es porque no es empleado.
-        empresa_actual = request.user.perfil.empresa 
-        today = timezone.now()
+    # Si es superusuario
+    if request.user.is_superuser:
+        return redirect('/admin/')
 
-        # === AQUI EMPIEZA TU LÓGICA DE CÁLCULO ===
-        
-        # A. Indicadores
-        total_vendido_mes = Factura.objects.filter(
-            empresa=empresa_actual,
-            fecha_emision__year=today.year,
-            fecha_emision__month=today.month
-        ).aggregate(total=Sum('importe_total'))['total'] or 0
+    # Usuario ERP
+    if not hasattr(request.user, 'perfil') or request.user.perfil is None:
+        messages.error(request, 'Tu usuario no tiene perfil asignado.')
+        logout(request)
+        return redirect('core:login')
 
-        total_comprado_mes = Compra.objects.filter(
-            empresa=empresa_actual,
-            fecha__year=today.year,
-            fecha__month=today.month,
-            estado='A'
-        ).aggregate(total=Sum('total'))['total'] or 0
+    if not request.user.perfil.activo:
+        messages.error(request, 'Tu perfil está inactivo.')
+        logout(request)
+        return redirect('core:login')
 
-        stock_bajo = Producto.objects.filter(
-            empresa=empresa_actual,
-            stock__lt=5
-        ).count()
+    if not request.user.perfil.empresa.activa:
+        messages.error(request, 'La empresa asociada está inactiva.')
+        logout(request)
+        return redirect('core:login')
 
-        facturas_pendientes_sri = Factura.objects.filter(
-            empresa=empresa_actual,
-            estado_sri='P'
-        ).count()
+    empresa_actual = request.user.perfil.empresa
+    today = timezone.now()
 
-        indicadores = {
-            'total_vendido': f"{total_vendido_mes:,.2f}",
-            'total_comprado': f"{total_comprado_mes:,.2f}",
-            'stock_bajo': stock_bajo,
-            'facturas_pendientes': facturas_pendientes_sri,
-        }
+    total_vendido_mes = Factura.objects.filter(
+        empresa=empresa_actual,
+        fecha_emision__year=today.year,
+        fecha_emision__month=today.month
+    ).aggregate(total=Sum('importe_total'))['total'] or 0
 
-        # B. Gráfico
-        fecha_inicio = today - relativedelta(months=5)
-        fecha_inicio = fecha_inicio.replace(day=1)
+    total_comprado_mes = Compra.objects.filter(
+        empresa=empresa_actual,
+        fecha__year=today.year,
+        fecha__month=today.month,
+        estado='A'
+    ).aggregate(total=Sum('total'))['total'] or 0
 
-        ventas_por_mes = Factura.objects.filter(
-            empresa=empresa_actual,
-            fecha_emision__gte=fecha_inicio
-        ).annotate(mes=TruncMonth('fecha_emision')).values('mes').annotate(
-            total_ventas=Sum('importe_total')
-        ).order_by('mes')
+    stock_bajo = Producto.objects.filter(
+        empresa=empresa_actual,
+        stock__lt=5
+    ).count()
 
-        compras_por_mes = Compra.objects.filter(
-            empresa=empresa_actual,
-            fecha__gte=fecha_inicio
-        ).annotate(mes=TruncMonth('fecha')).values('mes').annotate(
-            total_compras=Sum('total')
-        ).order_by('mes')
+    facturas_pendientes_sri = Factura.objects.filter(
+        empresa=empresa_actual,
+        estado_sri='P'
+    ).count()
 
-        ventas_dict = {v['mes'].strftime('%b %Y'): float(v['total_ventas']) for v in ventas_por_mes}
-        compras_dict = {c['mes'].strftime('%b %Y'): float(c['total_compras']) for c in compras_por_mes}
+    indicadores = {
+        'total_vendido': f"{total_vendido_mes:,.2f}",
+        'total_comprado': f"{total_comprado_mes:,.2f}",
+        'stock_bajo': stock_bajo,
+        'facturas_pendientes': facturas_pendientes_sri,
+    }
 
-        labels_grafico = [(fecha_inicio + relativedelta(months=i)).strftime('%b %Y') for i in range(6)]
-        data_ventas = [ventas_dict.get(label, 0) for label in labels_grafico]
-        data_compras = [compras_dict.get(label, 0) for label in labels_grafico]
+    fecha_inicio = today - relativedelta(months=5)
+    fecha_inicio = fecha_inicio.replace(day=1)
 
-        grafico_data = {
-            "labels": labels_grafico,
-            "ventas": data_ventas,
-            "compras": data_compras,
-        }
+    ventas_por_mes = Factura.objects.filter(
+        empresa=empresa_actual,
+        fecha_emision__gte=fecha_inicio
+    ).annotate(mes=TruncMonth('fecha_emision')).values('mes').annotate(
+        total_ventas=Sum('importe_total')
+    ).order_by('mes')
 
-        # C. Clientes Nuevos
-        clientes_nuevos_mes = Cliente.objects.filter(
-            empresa=empresa_actual,
-            fecha_creacion__year=today.year,
-            fecha_creacion__month=today.month
-        ).count()
+    compras_por_mes = Compra.objects.filter(
+        empresa=empresa_actual,
+        fecha__gte=fecha_inicio
+    ).annotate(mes=TruncMonth('fecha')).values('mes').annotate(
+        total_compras=Sum('total')
+    ).order_by('mes')
 
-        context = {
-            'empresa': empresa_actual, # Importante para que el header sepa qué empresa es
-            'indicadores': indicadores,
-            'clientes_nuevos': clientes_nuevos_mes,
-            'grafico_json': json.dumps(grafico_data),
-        }
+    ventas_dict = {v['mes'].strftime('%b %Y'): float(v['total_ventas']) for v in ventas_por_mes}
+    compras_dict = {c['mes'].strftime('%b %Y'): float(c['total_compras']) for c in compras_por_mes}
 
-        return render(request, 'dashboard.html', context)
-        # === FIN DE TU LÓGICA ===
+    labels_grafico = [(fecha_inicio + relativedelta(months=i)).strftime('%b %Y') for i in range(6)]
+    data_ventas = [ventas_dict.get(label, 0) for label in labels_grafico]
+    data_compras = [compras_dict.get(label, 0) for label in labels_grafico]
 
-    except AttributeError:
-        # --- 3. RED DE SEGURIDAD ---
-        # Si el usuario NO tiene perfil de empleado y NO es cliente del banco
-        # (Ej: un usuario superadmin nuevo que olvidaste configurar)
-        if request.user.is_superuser:
-            return redirect('/admin/')
-            
-        return render(request, 'banco/error_no_cliente.html', {
-            'mensaje': 'Tu usuario no tiene rol asignado (Ni Empresa, ni Banca).'
-        })
+    grafico_data = {
+        "labels": labels_grafico,
+        "ventas": data_ventas,
+        "compras": data_compras,
+    }
 
+    clientes_nuevos_mes = Cliente.objects.filter(
+        empresa=empresa_actual,
+        fecha_creacion__year=today.year,
+        fecha_creacion__month=today.month
+    ).count()
+
+    context = {
+        'empresa': empresa_actual,
+        'indicadores': indicadores,
+        'clientes_nuevos': clientes_nuevos_mes,
+        'grafico_json': json.dumps(grafico_data),
+    }
+
+    return render(request, 'core/dashboard.html', context)
 # ------------------------------
 # VISTAS DE MÓDULOS (PLACEHOLDERS)
 # ------------------------------
@@ -236,6 +330,61 @@ def proveedores_view(request):
     }
     
     return render(request, 'proveedores.html', context)
+
+@login_required
+def importar_proveedores_excel_view(request):
+    empresa = request.user.perfil.empresa
+
+    if request.method == "POST" and request.FILES.get("archivo"):
+        archivo = request.FILES["archivo"]
+
+        wb = openpyxl.load_workbook(archivo)
+        sheet = wb.active
+
+        creados = 0
+        actualizados = 0
+
+        for i, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+            nombre = str(row[0] or "").strip()
+            razon_social = str(row[1] or "").strip()
+            ruc = str(row[2] or "").strip()
+            telefono = str(row[3] or "").strip()
+            email = str(row[4] or "").strip()
+            direccion = str(row[5] or "").strip()
+
+            if not nombre or not ruc:
+                continue
+
+            proveedor, creado = Proveedor.objects.update_or_create(
+                empresa=empresa,
+                ruc=ruc,
+                defaults={
+                    "nombre": nombre,
+                    "razon_social": razon_social,
+                    "telefono": telefono,
+                    "email": email,
+                    "direccion": direccion,
+                }
+            )
+
+            if creado:
+                creados += 1
+            else:
+                actualizados += 1
+
+        messages.success(
+            request,
+            f"Importación finalizada. {creados} proveedores creados, {actualizados} actualizados."
+        )
+        return redirect("proveedores")
+
+    form = ProveedorForm()
+    proveedores = Proveedor.objects.filter(empresa=empresa).order_by("nombre")
+
+    return render(request, "proveedores.html", {
+        "form": form,
+        "proveedores": proveedores,
+    })
 
 @login_required
 def editar_proveedor_view(request, pk):
@@ -294,62 +443,6 @@ def config_empresa_view(request):
 @login_required
 def config_view(request): 
     return render(request, 'base.html') # Temporalmente muestra la base
-
-@login_required
-def inventario_view(request):
-    empresa_actual = request.user.perfil.empresa
-    
-    if request.method == 'POST':
-        form = ProductoForm(request.POST, empresa=empresa_actual)
-        if form.is_valid():
-            producto = form.save(commit=False)
-            producto.empresa = empresa_actual
-            producto.save()
-            messages.success(request, '¡Producto guardado exitosamente!')
-            return redirect('inventario')
-        else:
-            messages.error(request, 'Por favor, corrige los errores en el formulario.')
-    else:
-        form = ProductoForm(empresa=empresa_actual)
-
-    productos = Producto.objects.filter(empresa=empresa_actual).order_by('nombre')
-    
-    context = {
-        'productos': productos,
-        'form': form,
-    }
-    return render(request, 'inventario.html', context)
-
-@login_required
-def editar_producto_view(request, pk):
-    empresa_actual = request.user.perfil.empresa
-    producto = get_object_or_404(Producto, pk=pk, empresa=empresa_actual)
-
-    if request.method == 'POST':
-        form = ProductoForm(request.POST, instance=producto, empresa=empresa_actual)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Producto "{producto.nombre}" actualizado exitosamente.')
-            return redirect('inventario')
-    else:
-        form = ProductoForm(instance=producto, empresa=empresa_actual)
-
-    context = {'form': form}
-    return render(request, 'editar_producto.html', context)
-
-@login_required
-def eliminar_producto_view(request, pk):
-    empresa_actual = request.user.perfil.empresa
-    producto = get_object_or_404(Producto, pk=pk, empresa=empresa_actual)
-
-    if request.method == 'POST':
-        nombre_producto = producto.nombre
-        producto.delete()
-        messages.success(request, f'Producto "{nombre_producto}" eliminado exitosamente.')
-        return redirect('inventario')
-
-    context = {'producto': producto}
-    return render(request, 'eliminar_producto.html', context)
 
 @login_required
 def agregar_categoria_ajax(request):
@@ -1001,6 +1094,52 @@ def clientes_view(request):
         'clientes': clientes
     }
     return render(request, 'clientes.html', context)
+
+@login_required
+def importar_clientes_excel_view(request):
+    empresa = request.user.perfil.empresa
+
+    if request.method == "POST" and request.FILES.get("archivo"):
+        archivo = request.FILES["archivo"]
+
+        wb = openpyxl.load_workbook(archivo)
+        sheet = wb.active
+
+        creados = 0
+        actualizados = 0
+
+        for i, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+            nombre = str(row[0] or "").strip()
+            ruc = str(row[1] or "").strip()
+            telefono = str(row[2] or "").strip()
+            email = str(row[3] or "").strip()
+            direccion = str(row[4] or "").strip()
+
+            if not nombre or not ruc:
+                continue
+
+            cliente, creado = Cliente.objects.update_or_create(
+                empresa=empresa,
+                ruc=ruc,
+                defaults={
+                    "nombre": nombre,
+                    "telefono": telefono,
+                    "email": email,
+                    "direccion": direccion,
+                }
+            )
+
+            if creado:
+                creados += 1
+            else:
+                actualizados += 1
+
+        messages.success(
+            request,
+            f"Importación finalizada. {creados} clientes creados, {actualizados} actualizados."
+        )
+
+    return redirect('core:clientes')
 
 @login_required
 def descargar_xml_view(request, factura_id):
@@ -1725,3 +1864,433 @@ def ejecutar_backup(request):
         messages.error(request, f"Error al generar backup: {e}")
 
     return redirect('dashboard')
+
+def _to_decimal(value, default="0"):
+    if value in (None, "", "None"):
+        return Decimal(default)
+    try:
+        return Decimal(str(value).replace(",", "").strip())
+    except (InvalidOperation, AttributeError):
+        return Decimal(default)
+
+
+def _to_bool(value, default=True):
+    if value in (None, ""):
+        return default
+    value = str(value).strip().lower()
+    return value in ("1", "true", "si", "sí", "yes", "x", "ok")
+
+
+@login_required
+def importar_inventario_excel_view(request):
+    """
+    Importa Excel con formato flexible:
+    CÓDIGO | PRODUCTO | CATEGORÍA | PROVEEDOR | STOCK | COSTO | PRECIO 1 | PRECIO 2 | PRECIO 3
+
+    También acepta alias:
+    codigo/código/cod
+    producto/nombre/descripcion
+    categoría/categoria
+    proveedor/marca
+    precio 1/precio1/precio
+    """
+    if request.method != "POST":
+        return redirect("core:inventario")
+
+    archivo = request.FILES.get("archivo_excel")
+    vaciar_antes = request.POST.get("vaciar_antes") == "1"
+
+    if not archivo:
+        messages.error(request, "Debes seleccionar un archivo Excel (.xlsx).")
+        return redirect("core:inventario")
+
+    empresa = request.user.perfil.empresa
+
+    from core.models import (
+        Producto, Categoria, Marca, Modelo,
+        MovimientoInventario, TipoPrecio, ProductoPrecio
+    )
+
+    def norm(s):
+        if s is None:
+            return ""
+        return str(s).strip().upper()
+
+    def to_decimal(v, default="0"):
+        if v in (None, ""):
+            return Decimal(default)
+        s = str(v).strip().replace(" ", "")
+        # Soporta 1.234,56 / 1234,56 / 1234.56
+        if s.count(",") == 1 and s.count(".") >= 1:
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", ".")
+        try:
+            return Decimal(s)
+        except Exception:
+            return Decimal(default)
+
+    def to_bool(v, default=True):
+        if v in (None, ""):
+            return default
+        s = str(v).strip().lower()
+        return s in ("1", "true", "si", "sí", "yes", "x", "ok", "activo")
+
+    try:
+        wb = openpyxl.load_workbook(archivo, data_only=True)
+        ws = wb.active
+
+        # 1) detectar fila de encabezados real
+        # busca una fila que tenga al menos código + producto/nombre
+        header_row = None
+        for r in range(1, min(ws.max_row, 50) + 1):
+            row_vals = [norm(ws.cell(r, c).value) for c in range(1, ws.max_column + 1)]
+            if (
+                ("CÓDIGO" in row_vals or "CODIGO" in row_vals or "COD" in row_vals)
+                and ("PRODUCTO" in row_vals or "NOMBRE" in row_vals or "DESCRIPCION" in row_vals or "DESCRIPCIÓN" in row_vals)
+            ):
+                header_row = r
+                break
+
+        if not header_row:
+            messages.error(
+                request,
+                "No se encontró la fila de encabezados del Excel. "
+                "El archivo debe contener columnas como: CÓDIGO, PRODUCTO, STOCK, COSTO, PRECIO 1, PRECIO 2, PRECIO 3."
+            )
+            return redirect("core:inventario")
+
+        headers = [norm(ws.cell(header_row, c).value) for c in range(1, ws.max_column + 1)]
+
+        aliases = {
+            "codigo": ["CÓDIGO", "CODIGO", "COD", "SKU"],
+            "nombre": ["PRODUCTO", "NOMBRE", "DESCRIPCION", "DESCRIPCIÓN"],
+            "categoria": ["CATEGORÍA", "CATEGORIA"],
+            "marca": ["PROVEEDOR", "MARCA"],
+            "stock": ["STOCK", "EXISTENCIA"],
+            "costo": ["COSTO", "COSTE", "COSTO UNITARIO"],
+            "precio1": ["PRECIO 1", "PRECIO1", "PRECIO"],
+            "precio2": ["PRECIO 2", "PRECIO2", "P2"],
+            "precio3": ["PRECIO 3", "PRECIO3", "P3"],
+            "maneja_iva": ["IVA", "MANEJA IVA", "GRAVA IVA"],
+            "activo": ["ACTIVO", "ESTADO"],
+        }
+
+        def find_col(names):
+            for name in names:
+                if name in headers:
+                    return headers.index(name) + 1
+            return None
+
+        c_codigo = find_col(aliases["codigo"])
+        c_nombre = find_col(aliases["nombre"])
+        c_categoria = find_col(aliases["categoria"])
+        c_marca = find_col(aliases["marca"])
+        c_stock = find_col(aliases["stock"])
+        c_costo = find_col(aliases["costo"])
+        c_precio1 = find_col(aliases["precio1"])
+        c_precio2 = find_col(aliases["precio2"])
+        c_precio3 = find_col(aliases["precio3"])
+        c_maneja_iva = find_col(aliases["maneja_iva"])
+        c_activo = find_col(aliases["activo"])
+
+        if not c_codigo or not c_nombre or not c_precio1:
+            messages.error(
+                request,
+                "El archivo debe incluir al menos estas columnas válidas: "
+                "CÓDIGO, PRODUCTO y PRECIO 1."
+            )
+            return redirect("core:inventario")
+
+        # maestros base
+        categoria_na, _ = Categoria.objects.get_or_create(empresa=empresa, nombre="NA")
+        marca_na, _ = Marca.objects.get_or_create(empresa=empresa, nombre="NA")
+        modelo_na, _ = Modelo.objects.get_or_create(
+            empresa=empresa,
+            marca=marca_na,
+            nombre="NA"
+        )
+
+        tipo_precio_2, _ = TipoPrecio.objects.get_or_create(
+            empresa=empresa,
+            nombre="Precio 2",
+            defaults={"activo": True}
+        )
+        tipo_precio_3, _ = TipoPrecio.objects.get_or_create(
+            empresa=empresa,
+            nombre="Precio 3",
+            defaults={"activo": True}
+        )
+
+        creados = 0
+        actualizados = 0
+        omitidos = 0
+        errores = 0
+
+        with transaction.atomic():
+
+            if vaciar_antes:
+                ProductoPrecio.objects.filter(producto__empresa=empresa).delete()
+                MovimientoInventario.objects.filter(empresa=empresa).delete()
+                Producto.objects.filter(empresa=empresa).delete()
+
+            for r in range(header_row + 1, ws.max_row + 1):
+                try:
+                    raw_codigo = ws.cell(r, c_codigo).value if c_codigo else None
+                    raw_nombre = ws.cell(r, c_nombre).value if c_nombre else None
+
+                    codigo = str(raw_codigo).strip() if raw_codigo is not None else ""
+                    nombre = str(raw_nombre).strip() if raw_nombre is not None else ""
+
+                    if not codigo or not nombre:
+                        omitidos += 1
+                        continue
+
+                    # categoría
+                    categoria = categoria_na
+                    if c_categoria:
+                        val = ws.cell(r, c_categoria).value
+                        txt = str(val).strip() if val is not None else ""
+                        if txt:
+                            categoria, _ = Categoria.objects.get_or_create(
+                                empresa=empresa,
+                                nombre=txt
+                            )
+
+                    # marca (tu excel usa PROVEEDOR)
+                    marca = marca_na
+                    if c_marca:
+                        val = ws.cell(r, c_marca).value
+                        txt = str(val).strip() if val is not None else ""
+                        if txt:
+                            marca, _ = Marca.objects.get_or_create(
+                                empresa=empresa,
+                                nombre=txt
+                            )
+
+                    # modelo: como tu excel no trae, usar NA
+                    modelo, _ = Modelo.objects.get_or_create(
+                        empresa=empresa,
+                        marca=marca,
+                        nombre="NA"
+                    )
+
+                    stock_excel = to_decimal(ws.cell(r, c_stock).value, "0") if c_stock else Decimal("0")
+                    costo = to_decimal(ws.cell(r, c_costo).value, "0") if c_costo else Decimal("0")
+                    precio_1 = to_decimal(ws.cell(r, c_precio1).value, "0")
+                    precio_2 = to_decimal(ws.cell(r, c_precio2).value, "0") if c_precio2 else Decimal("0")
+                    precio_3 = to_decimal(ws.cell(r, c_precio3).value, "0") if c_precio3 else Decimal("0")
+                    maneja_iva = to_bool(ws.cell(r, c_maneja_iva).value, True) if c_maneja_iva else True
+                    activo = to_bool(ws.cell(r, c_activo).value, True) if c_activo else True
+
+                    existente = Producto.objects.filter(empresa=empresa, codigo=codigo).first()
+                    stock_anterior = existente.stock if existente else Decimal("0")
+
+                    producto, created = Producto.objects.update_or_create(
+                        empresa=empresa,
+                        codigo=codigo,
+                        defaults={
+                            "nombre": nombre,
+                            "categoria": categoria,
+                            "marca": marca,
+                            "modelo": modelo,
+                            "stock": stock_excel,
+                            "costo": costo,
+                            "precio": precio_1,
+                            "maneja_iva": maneja_iva,
+                            "activo": activo,
+                        }
+                    )
+
+                    ProductoPrecio.objects.update_or_create(
+                        producto=producto,
+                        tipo=tipo_precio_2,
+                        defaults={"valor": precio_2}
+                    )
+                    ProductoPrecio.objects.update_or_create(
+                        producto=producto,
+                        tipo=tipo_precio_3,
+                        defaults={"valor": precio_3}
+                    )
+
+                    diff = stock_excel - stock_anterior
+                    if diff != 0:
+                        MovimientoInventario.objects.create(
+                            empresa=empresa,
+                            producto=producto,
+                            tipo="AJ_E" if diff > 0 else "AJ_S",
+                            cantidad=abs(diff),
+                            costo_unitario=costo,
+                            costo_total=abs(diff) * costo,
+                            saldo=stock_excel,
+                            usuario=request.user,
+                            documento="IMPORTACION_EXCEL",
+                            observacion=f"Importación de inventario fila {r}"
+                        )
+
+                    if created:
+                        creados += 1
+                    else:
+                        actualizados += 1
+
+                except Exception:
+                    errores += 1
+
+        if errores:
+            messages.warning(
+                request,
+                f"Importación terminada con novedades. "
+                f"Creados: {creados}, actualizados: {actualizados}, omitidos: {omitidos}, errores: {errores}."
+            )
+        else:
+            messages.success(
+                request,
+                f"Importación completada. "
+                f"Creados: {creados}, actualizados: {actualizados}, omitidos: {omitidos}."
+            )
+
+        return redirect("core:inventario")
+
+    except Exception as e:
+        messages.error(request, f"No se pudo importar el archivo: {e}")
+        return redirect("core:inventario")
+    
+@login_required
+def eliminar_producto_view(request, pk):
+
+    empresa = request.user.perfil.empresa
+    producto = get_object_or_404(Producto, pk=pk, empresa=empresa)
+
+    if request.method == "POST":
+        producto.delete()
+        messages.success(request, "Producto eliminado correctamente.")
+        return redirect("core:inventario")
+
+    return render(request, "core/eliminar_producto.html", {
+        "producto": producto
+    })
+
+@login_required
+def inventario_view(request):
+    empresa_actual = request.user.perfil.empresa
+
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, empresa=empresa_actual)
+        if form.is_valid():
+            producto = form.save(commit=False)
+            producto.empresa = empresa_actual
+            producto.save()
+
+            # guardar precios 2 y 3 si vienen
+            producto.set_precio(2, request.POST.get("precio_2"))
+            producto.set_precio(3, request.POST.get("precio_3"))
+
+            messages.success(request, '¡Producto guardado exitosamente!')
+            return redirect('core:inventario')
+        else:
+            messages.error(request, 'Por favor, corrige los errores en el formulario.')
+    else:
+        form = ProductoForm(empresa=empresa_actual)
+
+    productos = (
+        Producto.objects
+        .filter(empresa=empresa_actual)
+        .select_related('categoria', 'marca', 'modelo')
+        .prefetch_related('precios__tipo')
+        .only(
+            'id', 'codigo', 'nombre', 'stock', 'costo', 'precio',
+            'maneja_iva',
+            'categoria__id', 'categoria__nombre',
+            'marca__id', 'marca__nombre',
+            'modelo__id', 'modelo__nombre',
+        )
+        .order_by('nombre')
+    )
+
+    categorias = Categoria.objects.filter(empresa=empresa_actual).only('id', 'nombre').order_by('nombre')
+    marcas = Marca.objects.filter(empresa=empresa_actual).only('id', 'nombre').order_by('nombre')
+    modelos = Modelo.objects.filter(empresa=empresa_actual).select_related('marca').only('id', 'nombre', 'marca__id', 'marca__nombre').order_by('nombre')
+
+    context = {
+        'productos': productos,
+        'form': form,
+        'categorias': categorias,
+        'marcas': marcas,
+        'modelos': modelos,
+    }
+    return render(request, 'inventario.html', context)
+
+@login_required
+def editar_producto_view(request, pk):
+    empresa = request.user.perfil.empresa
+    producto = get_object_or_404(Producto, pk=pk, empresa=empresa)
+
+    if request.method == "POST":
+        producto.codigo = request.POST.get("codigo", "").strip()
+        producto.nombre = request.POST.get("nombre", "").strip()
+        producto.categoria_id = request.POST.get("categoria") or None
+        producto.marca_id = request.POST.get("marca") or None
+        producto.modelo_id = request.POST.get("modelo") or None
+        producto.stock = Decimal(request.POST.get("stock") or "0")
+        producto.costo = Decimal(request.POST.get("costo") or "0")
+
+        # PRECIO 1/2/3
+        producto.set_precio(1, request.POST.get("precio_1"))
+        producto.save()  # primero guarda producto para asegurar PK
+        producto.set_precio(2, request.POST.get("precio_2"))
+        producto.set_precio(3, request.POST.get("precio_3"))
+
+        producto.maneja_iva = True if request.POST.get("maneja_iva") else False
+        producto.save()
+
+        messages.success(request, "Producto actualizado")
+        return redirect("core:inventario")
+
+    return redirect("core:inventario")
+
+
+# ============================
+# AJAX: agregar categoría/marca/modelo
+# ============================
+
+@login_required
+def agregar_categoria_ajax(request):
+    if request.method == "POST":
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            categoria = form.save(commit=False)
+            categoria.empresa = request.user.perfil.empresa
+            categoria.save()
+            return JsonResponse({"status": "success", "id": categoria.id, "nombre": categoria.nombre})
+        return JsonResponse({"status": "error", "message": "Datos inválidos", "errors": form.errors})
+
+    return JsonResponse({"status": "error", "message": "Método no permitido"})
+
+
+@login_required
+def agregar_marca_ajax(request):
+    if request.method == "POST":
+        form = MarcaForm(request.POST)
+        if form.is_valid():
+            marca = form.save(commit=False)
+            marca.empresa = request.user.perfil.empresa
+            marca.save()
+            return JsonResponse({"status": "success", "id": marca.id, "nombre": marca.nombre})
+        return JsonResponse({"status": "error", "message": "Datos inválidos", "errors": form.errors})
+
+    return JsonResponse({"status": "error", "message": "Método no permitido"})
+
+
+@login_required
+def agregar_modelo_ajax(request):
+    if request.method == "POST":
+        # si tu ModeloForm filtra por empresa, pásala como ya lo venías haciendo
+        form = ModeloForm(request.POST, empresa=request.user.perfil.empresa)
+        if form.is_valid():
+            modelo = form.save(commit=False)
+            modelo.empresa = request.user.perfil.empresa
+            modelo.save()
+            return JsonResponse({"status": "success", "id": modelo.id, "nombre": str(modelo)})
+        return JsonResponse({"status": "error", "message": "Datos inválidos", "errors": form.errors})
+
+    return JsonResponse({"status": "error", "message": "Método no permitido"})

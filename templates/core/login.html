@@ -36,7 +36,7 @@
                                         {% endfor %}
                                     {% endif %}
                                     
-                                    <form method="post" action="{% url 'login' %}">
+                                    <form method="post" action="{% url 'core:login' %}">
                                         {% csrf_token %}
                                         
                                         <div class="form-floating mb-3">
@@ -53,7 +53,7 @@
                                     </form>
                                 </div>
                                 <div class="card-footer text-center py-3">
-                                    <div class="small"><a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a></div>
+                                    <div class="small"><a href="{% url 'core:password_reset' %}">¿Olvidaste tu contraseña?</a></div>
                                 </div>
                             </div>
                         </div>

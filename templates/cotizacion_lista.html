@@ -47,7 +47,7 @@
                 <p class="text-muted small mb-0">Gestión de presupuestos y preventa</p>
             </div>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
                 <li class="breadcrumb-item active">Cotizaciones</li>
             </ol>
         </div>
@@ -65,7 +65,7 @@
             
             <div class="collapse show" id="collapseForm">
                 <div class="card-body">
-                    <form method="POST" action="{% url 'cotizaciones' %}" id="formCotizacion">
+                    <form method="POST" action="{% url 'core:cotizaciones' %}" id="formCotizacion">
                         {% csrf_token %}
                         
                         <div class="row g-3 mb-4">
@@ -191,7 +191,7 @@
 
 <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
-        <form id="formClienteAjax" action="{% url 'agregar_cliente_ajax' %}" class="modal-content">
+        <form id="formClienteAjax" action="{% url 'core:agregar_cliente_ajax' %}" class="modal-content">
             <div class="modal-header bg-light py-2"><h6 class="modal-title fw-bold">Nuevo Cliente</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="mb-2"><label class="small fw-bold">Nombre Completo</label><input type="text" name="nombre" class="form-control form-control-sm" required></div>
@@ -233,8 +233,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     
     // URLS AJAX
-    const urlBuscarProductos = "{% url 'buscar_productos_venta_ajax' %}";
-    const urlBuscarClientes = "{% url 'buscar_clientes_ajax' %}";
+    const urlBuscarProductos = "{% url 'core:buscar_productos_venta_ajax' %}";
+    const urlBuscarClientes = "{% url 'core:buscar_clientes_ajax' %}";
 
     // ==================================================
     // 1. SELECT2 CLIENTES

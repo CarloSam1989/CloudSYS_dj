@@ -32,7 +32,7 @@ class Modulo(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - {self.sistema.nombre}"
-    
+
 class Usuario(AbstractUser):
     activo = models.BooleanField(default=True)
 
@@ -85,6 +85,20 @@ class Perfil(models.Model):
     sistemas = models.ManyToManyField(Sistema, blank=True)
     activo = models.BooleanField(default=True)
 
+    def tiene_modulo(self, nombre_modulo):
+        return self.modulos_asignados.filter(
+            modulo__nombre__iexact=nombre_modulo,
+            activo=True,
+            modulo__activo=True
+        ).exists()
+
+    @property
+    def tiene_cobros(self):
+        return self.modulos_asignados.filter(
+            modulo__nombre__iexact='Cobros',
+            activo=True,
+            modulo__activo=True
+        ).exists()
 
     def __str__(self):
         return f"Perfil de {self.user.username} en {self.empresa.nombre}"
@@ -105,6 +119,27 @@ class PuntoVenta(models.Model):
     class Meta:
         unique_together = ('empresa', 'codigo_establecimiento', 'codigo_punto_emision')
 
+class EmpresaModulo(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='modulos_habilitados')
+    modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('empresa', 'modulo')
+
+    def __str__(self):
+        return f"{self.empresa.nombre} -> {self.modulo.nombre}"
+
+class PerfilModulo(models.Model):
+    perfil = models.ForeignKey('Perfil', on_delete=models.CASCADE, related_name='modulos_asignados')
+    modulo = models.ForeignKey('Modulo', on_delete=models.CASCADE, related_name='perfiles_asignados')
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('perfil', 'modulo')
+
+    def __str__(self):
+        return f"{self.perfil.user.username} -> {self.modulo.nombre}"
 # ==============================================================================
 # 2. MODELOS DE DATOS MAESTROS (CLIENTES, PROVEEDORES, PRODUCTOS)
 # ==============================================================================
@@ -149,30 +184,59 @@ class Proveedor(models.Model):
     class Meta:
         verbose_name_plural = "Proveedores"
 
-class Categoria(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    
+class TipoPrecio(models.Model):
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    nombre = models.CharField(max_length=50)  # "Precio 1", "Precio 2", "Precio 3"
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("empresa", "nombre")
+
     def __str__(self):
         return self.nombre
+
+class Categoria(models.Model):
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    nombre = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        unique_together = ('empresa', 'nombre')
+        indexes = [
+            models.Index(fields=['empresa', 'nombre'])
+        ]
 
 class Marca(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
     nombre = models.CharField(max_length=100)
 
     def __str__(self):
         return self.nombre
 
+    class Meta:
+        unique_together = ('empresa', 'nombre')
+        indexes = [
+            models.Index(fields=['empresa', 'nombre'])
+        ]
+
 class Modelo(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE)
     nombre = models.CharField(max_length=100)
 
     def __str__(self):
         return f"{self.marca.nombre} {self.nombre}"
 
+    class Meta:
+        unique_together = ('empresa', 'marca', 'nombre')
+        indexes = [
+            models.Index(fields=['empresa', 'marca', 'nombre'])
+        ]
+
 class Producto(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
     codigo = models.CharField(max_length=50)
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
@@ -180,7 +244,8 @@ class Producto(models.Model):
     marca = models.ForeignKey(Marca, on_delete=models.PROTECT, null=True, blank=True)
     modelo = models.ForeignKey(Modelo, on_delete=models.PROTECT, null=True, blank=True)
     costo = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name="Costo Unitario")
-    precio = models.DecimalField(max_digits=12, decimal_places=4, verbose_name="Precio Unitario de Venta")
+    # PRECIO 1 (principal)
+    precio = models.DecimalField(max_digits=12, decimal_places=4, verbose_name="Precio 1")
     stock = models.DecimalField(max_digits=12, decimal_places=4, default=0)
     maneja_iva = models.BooleanField(default=True, verbose_name="Grava IVA")
     activo = models.BooleanField(default=True)
@@ -188,6 +253,84 @@ class Producto(models.Model):
     def __str__(self):
         return self.nombre
 
+    class Meta:
+            indexes = [
+                models.Index(fields=['empresa', 'codigo']),
+                models.Index(fields=['empresa', 'nombre']),
+            ]
+            unique_together = ('empresa', 'codigo')
+    # ============================
+    # Helpers para 3 precios
+    # ============================
+    def _get_tipo_precio(self, nombre: str):
+        return TipoPrecio.objects.filter(empresa=self.empresa, nombre=nombre).first()
+
+    def get_precio(self, n: int) -> Decimal:
+        if n == 1:
+            return self.precio or Decimal("0")
+
+        nombre_tipo = f"Precio {n}"
+
+        # Si precios ya vino con prefetch_related('precios__tipo'),
+        # usar eso en memoria y no consultar DB otra vez
+        if hasattr(self, '_prefetched_objects_cache') and 'precios' in self._prefetched_objects_cache:
+            for pp in self.precios.all():
+                if pp.tipo and pp.tipo.nombre == nombre_tipo:
+                    return pp.valor
+            return Decimal("0")
+
+        # fallback si no vino prefetched
+        tipo = TipoPrecio.objects.filter(empresa=self.empresa, nombre=nombre_tipo).first()
+        if not tipo:
+            return Decimal("0")
+
+        pp = self.precios.filter(tipo=tipo).first()
+        return pp.valor if pp else Decimal("0")
+
+    def set_precio(self, n: int, valor):
+        """
+        Guarda precio 1 en Producto.precio
+        Guarda precio 2/3 en ProductoPrecio
+        """
+        valor = Decimal(str(valor or "0"))
+
+        if n == 1:
+            self.precio = valor
+            return
+
+        tipo, _ = TipoPrecio.objects.get_or_create(
+            empresa=self.empresa,
+            nombre=f"Precio {n}",
+            defaults={"activo": True},
+        )
+        ProductoPrecio.objects.update_or_create(
+            producto=self,
+            tipo=tipo,
+            defaults={"valor": valor},
+        )
+
+    @property
+    def precio_1(self):
+        return self.get_precio(1)
+
+    @property
+    def precio_2(self):
+        return self.get_precio(2)
+
+    @property
+    def precio_3(self):
+        return self.get_precio(3)
+
+class ProductoPrecio(models.Model):
+    producto = models.ForeignKey(Producto, related_name="precios", on_delete=models.CASCADE)
+    tipo = models.ForeignKey(TipoPrecio, on_delete=models.PROTECT)
+    valor = models.DecimalField(max_digits=12, decimal_places=4)
+
+    class Meta:
+        unique_together = ("producto", "tipo")
+
+    def __str__(self):
+        return f"{self.producto.nombre} - {self.tipo.nombre}: {self.valor}"
 # ==============================================================================
 # 3. MODELOS TRANSACCIONALES (COMPRAS Y VENTAS/FACTURACIÓN)
 # ==============================================================================
@@ -295,14 +438,98 @@ class PagoFactura(models.Model):
 # ==============================================================================
 
 class MovimientoInventario(models.Model):
-    TIPO_CHOICES = [('E', 'Entrada/Compra'), ('S', 'Salida/Venta'), ('AJ_E', 'Ajuste de Entrada'), ('AJ_S', 'Ajuste de Salida')]
+
+    TIPO_CHOICES = [
+        ('E', 'Entrada / Compra'),
+        ('S', 'Salida / Venta'),
+        ('AJ_E', 'Ajuste Entrada'),
+        ('AJ_S', 'Ajuste Salida'),
+        ('TR_E', 'Transferencia Entrada'),
+        ('TR_S', 'Transferencia Salida'),
+    ]
+
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+
+    producto = models.ForeignKey(
+        Producto,
+        on_delete=models.CASCADE,
+        related_name="movimientos"
+    )
+
     tipo = models.CharField(max_length=4, choices=TIPO_CHOICES)
-    cantidad = models.DecimalField(max_digits=12, decimal_places=4)
+
+    cantidad = models.DecimalField(
+        max_digits=12,
+        decimal_places=4
+    )
+
+    # COSTO DEL PRODUCTO EN ESE MOMENTO
+    costo_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True
+    )
+
+    # COSTO TOTAL DEL MOVIMIENTO
+    costo_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True
+    )
+
+    # SALDO DESPUÉS DEL MOVIMIENTO (opcional pero útil)
+    saldo = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True
+    )
+
     fecha = models.DateTimeField(auto_now_add=True)
-    detalle_factura = models.ForeignKey(FacturaDetalle, null=True, blank=True, on_delete=models.SET_NULL)
-    detalle_compra = models.ForeignKey(CompraDetalle, null=True, blank=True, on_delete=models.SET_NULL)
+
+    # DOCUMENTOS RELACIONADOS
+    detalle_factura = models.ForeignKey(
+        FacturaDetalle,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
+
+    detalle_compra = models.ForeignKey(
+        CompraDetalle,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
+
+    # DOCUMENTO REFERENCIA
+    documento = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
+    )
+
+    # OBSERVACIONES
+    observacion = models.TextField(
+        null=True,
+        blank=True
+    )
+
+    # USUARIO QUE GENERÓ EL MOVIMIENTO
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.producto.nombre} - {self.tipo} - {self.cantidad}"
 
 class Promocion(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)

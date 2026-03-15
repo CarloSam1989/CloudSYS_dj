@@ -173,8 +173,8 @@ class FacturaAdmin(admin.ModelAdmin):
 
 admin.site.register(Bitacora)
 admin.site.register(MovimientoInventario)
-
-
+admin.site.register(Modulo)
+admin.site.register(PerfilModulo)
 @admin.register(CuentaBancaria)
 class CuentaBancariaAdmin(admin.ModelAdmin):
     list_display = (

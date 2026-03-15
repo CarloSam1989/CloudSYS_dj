@@ -25,6 +25,7 @@ idna==3.10
 isodate==0.7.2
 kombu==5.5.4
 lxml==6.0.1
+openpyxl
 packaging==25.0
 pillow==11.3.0
 platformdirs==4.4.0

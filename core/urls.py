@@ -2,7 +2,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 from . import views
-
+app_name = "core"
 urlpatterns = [
     # Rutas de autenticación
     path('login/', views.login_view, name='login'),
@@ -13,18 +13,9 @@ urlpatterns = [
     
     # --- Rutas del Módulo de Proveedores ---
     path('proveedores/', views.proveedores_view, name='proveedores'),
+    path('proveedores/importar/', views.importar_proveedores_excel_view, name='proveedores_importar'),
     path('proveedores/<int:pk>/editar/', views.editar_proveedor_view, name='editar_proveedor'),
     path('proveedores/<int:pk>/eliminar/', views.eliminar_proveedor_view, name='eliminar_proveedor'),
-
-    # --- Rutas del Módulo de Inventario ---
-    path('inventario/', views.inventario_view, name='inventario'),
-    path('inventario/<int:pk>/editar/', views.editar_producto_view, name='editar_producto'),
-    path('inventario/<int:pk>/eliminar/', views.eliminar_producto_view, name='eliminar_producto'),
-    
-    # --- NUEVAS RUTAS AJAX PARA LOS MODALES DE INVENTARIO ---
-    path('inventario/ajax/agregar-categoria/', views.agregar_categoria_ajax, name='agregar_categoria_ajax'),
-    path('inventario/ajax/agregar-marca/', views.agregar_marca_ajax, name='agregar_marca_ajax'),
-    path('inventario/ajax/agregar-modelo/', views.agregar_modelo_ajax, name='agregar_modelo_ajax'),
 
     # --- Rutas para los otros módulos (placeholders) ---
     path('ventas/', views.ventas_view, name='ventas'),
@@ -50,6 +41,7 @@ urlpatterns = [
     path('facturacion-electronica/consultar-estado/', views.consultar_estado_sri_ajax, name='consultar_estado_sri_ajax'),
     path('facturacion-electronica/reenviar/', views.reenviar_factura_ajax, name='reenviar_factura_ajax'),
     path('clientes/', views.clientes_view, name='clientes'),
+    path('clientes/importar/', views.importar_clientes_excel_view, name='clientes_importar'),
     path('facturacion-electronica/xml-generado/<int:factura_id>/', views.descargar_xml_generado_view, name='descargar_xml_generado'),
     path('facturacion-electronica/xml-firmado/<int:factura_id>/', views.descargar_xml_firmado_view, name='descargar_xml_firmado'),
     path('facturacion-electronica/xml/<int:factura_id>/', views.descargar_xml_view, name='descargar_xml'),
@@ -96,4 +88,14 @@ urlpatterns = [
     path('recuperar/<uidb64>/<token>/',auth_views.PasswordResetConfirmView.as_view(template_name='auth/password_reset_confirm.html'),name='password_reset_confirm'),
     path('recuperar/completado/',auth_views.PasswordResetCompleteView.as_view(template_name='auth/password_reset_complete.html'),name='password_reset_complete'),
     path('backup-db/', views.ejecutar_backup, name='backup_db'),
+
+    path('inventario/importar/', views.importar_inventario_excel_view, name='inventario_importar'),
+    path("inventario/", views.inventario_view, name="inventario"),
+    path("inventario/<int:pk>/editar/", views.editar_producto_view, name="editar_producto"),
+    path("inventario/<int:pk>/eliminar/", views.eliminar_producto_view, name="eliminar_producto"),
+
+    path("inventario/ajax/agregar-categoria/", views.agregar_categoria_ajax, name="agregar_categoria_ajax"),
+    path("inventario/ajax/agregar-marca/", views.agregar_marca_ajax, name="agregar_marca_ajax"),
+    path("inventario/ajax/agregar-modelo/", views.agregar_modelo_ajax, name="agregar_modelo_ajax"),
+
 ]

@@ -1,0 +1,42 @@
+{% extends "cobros/base_cobros.html" %}
+
+{% block content %}
+
+<h2>Lista de Cobros</h2>
+
+<a href="{% url 'cobros:crear_cobro' %}" class="btn btn-primary mb-3">
+    Nuevo Cobro
+</a>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Monto</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cobro in cobros %}
+        <tr>
+            <td>{{ cobro.id }}</td>
+            <td>{{ cobro.cliente }}</td>
+            <td>{{ cobro.monto_base }}</td>
+            <td>{{ cobro.total_con_utilidad }}</td>
+            <td>{{ cobro.fecha }}</td>
+            <td>
+                <a href="{% url 'cobros:editar_cobro' cobro.id %}" class="btn btn-warning btn-sm">Editar</a>
+                <a href="{% url 'cobros:eliminar_cobro' cobro.id %}" class="btn btn-danger btn-sm">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No hay registros</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

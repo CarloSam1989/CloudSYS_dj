@@ -1,0 +1,14 @@
+{% extends "cobros/base_cobros.html" %}
+
+{% block content %}
+
+<h2>{{ titulo }}</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">Guardar</button>
+    <a href="{% url 'cobros:lista_cobros' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+{% endblock %}

@@ -31,12 +31,23 @@
         .sb-sidenav-dark .sb-sidenav-menu .nav-link.banking-link:hover {
             color: #fff;
         }
+        .start-collapsed .card-body {
+            display: none;
+        }
+
+        .toggle-card {
+            min-width: 32px;
+        }
+
+        .card-header {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="sb-nav-fixed">
 
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
-        <a class="navbar-brand ps-3" href="{% if user.perfil_cliente %}{% url 'home_banking' %}{% else %}{% url 'dashboard' %}{% endif %}">
+        <a class="navbar-brand ps-3" href="{% if user.perfil_cliente %}{% url 'home_banking' %}{% else %}{% url 'core:dashboard' %}{% endif %}">
             <img src="{% static 'img/logo.jpg' %}" alt="Logo" width="40" height="40" style="border-radius: 50%" />
             <span class="d-none d-sm-inline">CLOUDCENTER</span> <span class="d-inline d-sm-none">SYSCLOUD</span> 
         </a>
@@ -61,11 +72,11 @@
                     <li><hr class="dropdown-divider" /></li>
                     
                     {% if not user.perfil_cliente %}
-                    <li><a class="dropdown-item" href="{% url 'config_empresa' %}">Configuración</a></li>
+                    <li><a class="dropdown-item" href="{% url 'core:config_empresa' %}">Configuración</a></li>
                     <li><hr class="dropdown-divider" /></li>
                     {% endif %}
                     
-                    <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar Sesión</a></li>
+                    <li><a class="dropdown-item" href="{% url 'core:logout' %}">Cerrar Sesión</a></li>
                 </ul>
             </li>
         </ul>
@@ -99,9 +110,9 @@
                         
                             <div class="sb-sidenav-menu-heading">ERP EMPRESARIAL</div>
 
-                            <a class="nav-link" href="{% url 'dashboard' %}">
+                            <a class="nav-link" href="{% url 'core:dashboard' %}">
                                 <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                                Dashboard
+                                Dashboard 
                             </a>
 
                             <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePersonas" aria-expanded="false" aria-controls="collapsePersonas">
@@ -111,8 +122,8 @@
                             </a>
                             <div class="collapse" id="collapsePersonas" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
-                                    <a class="nav-link" href="{% url 'clientes' %}">Clientes</a> 
-                                    <a class="nav-link" href="{% url 'proveedores' %}">Proveedores</a>
+                                    <a class="nav-link" href="{% url 'core:clientes' %}">Clientes</a> 
+                                    <a class="nav-link" href="{% url 'core:proveedores' %}">Proveedores</a>
                                 </nav>
                             </div>
 
@@ -123,36 +134,35 @@
                             </a>
                             <div class="collapse" id="collapseVentas" aria-labelledby="headingTwo" data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
-                                    <a class="nav-link" href="{% url 'ventas' %}">Nueva Factura</a>
-                                    <a class="nav-link" href="{% url 'cotizaciones' %}">Cotizaciones</a>
-                                    <a class="nav-link" href="{% url 'facturacion_electronica' %}">Historial Ventas</a>
+                                    <a class="nav-link" href="{% url 'core:ventas' %}">Nueva Factura</a>
+                                    <a class="nav-link" href="{% url 'core:cotizaciones' %}">Cotizaciones</a>
+                                    <a class="nav-link" href="{% url 'core:facturacion_electronica' %}">Historial Ventas</a>
                                 </nav>
                             </div>
                             
-                            <a class="nav-link" href="{% url 'inventario' %}">
+                            <a class="nav-link" href="{% url 'core:inventario' %}">
                                 <div class="sb-nav-link-icon"><i class="fa-solid fa-warehouse"></i></div>
                                 Inventario
                             </a>
                             
-                            <a class="nav-link" href="{% url 'compras' %}">
+                            <a class="nav-link" href="{% url 'core:compras' %}">
                                 <div class="sb-nav-link-icon"><i class="fa-regular fa-credit-card"></i></div>
                                 Compras
                             </a>
+                            <div class="sb-sidenav-menu-heading">SISTEMAS</div>
+                            {% if request.user.is_superuser or request.user.perfil.tiene_cobros %}
+                            
+                                <a class="nav-link" href="{% url 'cobros:lista_cobros' %}">
+                                    <div class="sb-nav-link-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                                    Sistema de Cobros
+                                </a>
+                            {% else %}  
+                                No tienes acceso a otros sistemas. Contacta al administrador para más información.
 
-                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseFinanzas" aria-expanded="false">
-                                <div class="sb-nav-link-icon"><i class="fa-solid fa-sack-dollar"></i></div>
-                                Mi banquito
-                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                            </a>
-                            <div class="collapse" id="collapseFinanzas" data-bs-parent="#sidenavAccordion">
-                                <nav class="sb-sidenav-menu-nested nav">
-                                    <a class="nav-link" href="{% url 'caja_list' %}">Cuentas Bancarias</a>
-                                    <a class="nav-link" href="{% url 'prestamo_list' %}">Préstamos</a>
-                                </nav>
-                            </div>
+                            {% endif %}
 
                             {% if user.is_superuser %}
-                            <a class="nav-link" href="{% url 'backup_db' %}">
+                            <a class="nav-link" href="{% url 'core:backup_db' %}">
                                 <div class="sb-nav-link-icon">
                                     <i class="fa-solid fa-database"></i>
                                 </div>
@@ -177,18 +187,9 @@
 
         <div id="layoutSidenav_content">
             <main>
-                {% if messages %}
-                    {% for message in messages %}
-                    <div class="container-fluid px-4 mt-3">
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-
-                {% block content %}{% endblock %}
+                {% block content %}
+       
+                {% endblock %}
             </main>
 
             <footer class="py-4 bg-light mt-auto">

@@ -52,7 +52,7 @@
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
             <h2 class="h4">Compras</h2>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
                 <li class="breadcrumb-item active">Compras</li>
             </ol>
         </div>
@@ -63,7 +63,7 @@
                 <span class="badge bg-white text-success" id="total-compra-header">Total: $0.00</span>
             </div>
             <div class="card-body">
-                <form method="POST" action="{% url 'compras' %}" id="formCompra">
+                <form method="POST" action="{% url 'core:compras' %}" id="formCompra">
                     {% csrf_token %}
                     
                     <div class="row g-2 mb-3">
@@ -167,7 +167,7 @@
            
 <div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
-        <form id="formProveedor" action="{% url 'agregar_proveedor_ajax' %}" class="modal-content">
+        <form id="formProveedor" action="{% url 'core:agregar_proveedor_ajax' %}" class="modal-content">
             <div class="modal-header bg-light py-2"><h5 class="modal-title h6">Nuevo Proveedor</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="mb-2"><label class="small fw-bold">Razón Social</label><input type="text" name="nombre" class="form-control form-control-sm" required></div>
@@ -201,8 +201,8 @@
 {% block javascript %}
 <script>
 $(function() {
-    const urlBuscarProductos = "{% url 'buscar_productos_ajax' %}";
-    const urlBuscarProveedores = "{% url 'buscar_proveedores_ajax' %}"; 
+    const urlBuscarProductos = "{% url 'core:buscar_productos_ajax' %}";
+    const urlBuscarProveedores = "{% url 'core:buscar_proveedores_ajax' %}"; 
 
     // 1. Inicializar Proveedor (CSS controla el ancho)
     $('#{{ compra_form.proveedor.id_for_label }}').select2({

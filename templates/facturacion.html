@@ -8,7 +8,7 @@
         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
             <h2 class="h4">Facturación Electrónica</h2>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
                 <li class="breadcrumb-item active">Facturación</li>
             </ol>
         </div>
@@ -72,18 +72,18 @@
                                 </button>
                             {% endif %}
 
-                            <a href="{% url 'venta_pdf' f.id %}" class="btn btn-sm btn-info" target="_blank" title="Ver PDF"><i class="fa-solid fa-file-pdf"></i></a>
+                            <a href="{% url 'core:venta_pdf' f.id %}" class="btn btn-sm btn-info" target="_blank" title="Ver PDF"><i class="fa-solid fa-file-pdf"></i></a>
                             
                             {% if f.xml_generado %}
-                                <a href="{% url 'descargar_xml_generado' f.id %}" class="btn btn-sm btn-light" title="Descargar XML Generado (sin firma)"><i class="fa-solid fa-file"></i></a>
+                                <a href="{% url 'core:descargar_xml_generado' f.id %}" class="btn btn-sm btn-light" title="Descargar XML Generado (sin firma)"><i class="fa-solid fa-file"></i></a>
                             {% endif %}
 
                             {% if f.xml_firmado %}
-                                <a href="{% url 'descargar_xml_firmado' f.id %}" class="btn btn-sm btn-warning" title="Descargar XML Firmado (sin autorización)"><i class="fa-solid fa-signature"></i></a>
+                                <a href="{% url 'core:descargar_xml_firmado' f.id %}" class="btn btn-sm btn-warning" title="Descargar XML Firmado (sin autorización)"><i class="fa-solid fa-signature"></i></a>
                             {% endif %}
 
                             {% if f.estado_sri == 'A' %}
-                                <a href="{% url 'descargar_xml' f.id %}" class="btn btn-sm btn-secondary" title="Descargar XML Autorizado"><i class="fa-solid fa-file-code"></i></a>
+                                <a href="{% url 'core:descargar_xml' f.id %}" class="btn btn-sm btn-secondary" title="Descargar XML Autorizado"><i class="fa-solid fa-file-code"></i></a>
                             {% endif %}
                         </td>
                     </tr>
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const table = document.getElementById('datatablesSimple');
 
     function checkStatus(facturaId) {
-        const url = `{% url 'consultar_estado_sri_ajax' %}?factura_id=${facturaId}`;
+        const url = `{% url 'core:consultar_estado_sri_ajax' %}?factura_id=${facturaId}`;
         const row = document.getElementById(`factura-row-${facturaId}`);
         if (!row) return;
 
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (procesarBtn) {
                 const button = procesarBtn;
                 const facturaId = button.dataset.facturaId;
-                const url = "{% url 'procesar_factura_ajax' %}";
+                const url = "{% url 'core:procesar_factura_ajax' %}";
                 const row = button.closest('tr');
                 const estadoCell = row.cells[4];
 
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reenviarBtn) {
                 const button = reenviarBtn;
                 const facturaId = button.dataset.facturaId;
-                const url = "{% url 'reenviar_factura_ajax' %}";
+                const url = "{% url 'core:reenviar_factura_ajax' %}";
                 
                 button.disabled = true;
                 button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
