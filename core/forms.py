@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import SetPasswordForm
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory, formset_factory, modelformset_factory
+from django.contrib.auth.forms import UserCreationForm
 from .models import *
 
 # ==========================================
@@ -209,6 +210,7 @@ class CotizacionForm(forms.ModelForm):
             'cliente': forms.Select(attrs={'class': 'form-select form-select-sm'}),
             'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control form-control-sm', 'type': 'date'}),
         }
+
 class CotizacionDetalleForm(forms.ModelForm):
     # CORRECCIÓN: Definimos subtotal aquí porque NO es parte de la Base de Datos
     # Esto soluciona el "FieldError: Unknown field(s) (subtotal)"
@@ -342,3 +344,78 @@ class CustomSetPasswordForm(SetPasswordForm):
             }
         )
     )
+
+# ==========================================
+# 6. USUARIOS / PERFILES
+# ==========================================
+
+class UsuarioSistemaForm(UserCreationForm):
+    first_name = forms.CharField(
+        max_length=150,
+        required=False,
+        label="Nombres"
+    )
+    last_name = forms.CharField(
+        max_length=150,
+        required=False,
+        label="Apellidos"
+    )
+    email = forms.EmailField(
+        required=False,
+        label="Correo"
+    )
+    activo = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Activo"
+    )
+    modulos = forms.ModelMultipleChoiceField(
+        queryset=Modulo.objects.filter(activo=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Módulos"
+    )
+
+    class Meta:
+        model = Usuario
+        fields = [
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'password1',
+            'password2',
+            'activo',
+            'modulos',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+
+        self.fields['username'].label = "Usuario"
+        self.fields['password1'].label = "Contraseña"
+        self.fields['password2'].label = "Confirmar contraseña"
+
+        if empresa:
+            self.fields['modulos'].queryset = Modulo.objects.filter(
+                activo=True,
+                empresamodulo__empresa=empresa,
+                empresamodulo__activo=True
+            ).distinct()
+        
+        for name, field in self.fields.items():
+            if name == 'modulos':
+                continue
+            if name == 'activo':
+                field.widget.attrs.update({'class': 'form-check-input'})
+            else:
+                field.widget.attrs.update({'class': 'form-control'})
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+
+        if " " in username:
+            raise forms.ValidationError("El usuario no debe contener espacios.")
+
+        return username.lower()

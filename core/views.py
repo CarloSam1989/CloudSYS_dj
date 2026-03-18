@@ -1873,13 +1873,11 @@ def _to_decimal(value, default="0"):
     except (InvalidOperation, AttributeError):
         return Decimal(default)
 
-
 def _to_bool(value, default=True):
     if value in (None, ""):
         return default
     value = str(value).strip().lower()
     return value in ("1", "true", "si", "sí", "yes", "x", "ok")
-
 
 @login_required
 def importar_inventario_excel_view(request):
@@ -2248,7 +2246,6 @@ def editar_producto_view(request, pk):
 
     return redirect("core:inventario")
 
-
 # ============================
 # AJAX: agregar categoría/marca/modelo
 # ============================
@@ -2266,7 +2263,6 @@ def agregar_categoria_ajax(request):
 
     return JsonResponse({"status": "error", "message": "Método no permitido"})
 
-
 @login_required
 def agregar_marca_ajax(request):
     if request.method == "POST":
@@ -2279,7 +2275,6 @@ def agregar_marca_ajax(request):
         return JsonResponse({"status": "error", "message": "Datos inválidos", "errors": form.errors})
 
     return JsonResponse({"status": "error", "message": "Método no permitido"})
-
 
 @login_required
 def agregar_modelo_ajax(request):
@@ -2294,3 +2289,72 @@ def agregar_modelo_ajax(request):
         return JsonResponse({"status": "error", "message": "Datos inválidos", "errors": form.errors})
 
     return JsonResponse({"status": "error", "message": "Método no permitido"})
+
+@login_required
+def usuarios_view(request):
+    # Validaciones base del sistema
+    if request.user.is_superuser:
+        empresa_actual = None
+    else:
+        if not hasattr(request.user, 'perfil') or request.user.perfil is None:
+            messages.error(request, 'Tu usuario no tiene perfil asignado.')
+            return redirect('core:dashboard')
+
+        empresa_actual = request.user.perfil.empresa
+
+    # Listado
+    if request.user.is_superuser:
+        usuarios = Usuario.objects.filter(is_superuser=False).select_related('perfil', 'perfil__empresa').order_by('username')
+    else:
+        usuarios = Usuario.objects.filter(
+            perfil__empresa=empresa_actual
+        ).select_related('perfil', 'perfil__empresa').order_by('username')
+
+    # Crear
+    if request.method == 'POST':
+        form = UsuarioSistemaForm(request.POST, empresa=empresa_actual)
+
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    usuario = form.save(commit=False)
+                    usuario.activo = form.cleaned_data.get('activo', True)
+                    usuario.is_staff = False
+                    usuario.is_superuser = False
+                    usuario.save()
+
+                    if empresa_actual is None:
+                        messages.error(request, 'Un superusuario debe seleccionar empresa desde una versión extendida de este formulario.')
+                        raise Exception('Empresa no definida para el nuevo usuario.')
+
+                    perfil = Perfil.objects.create(
+                        user=usuario,
+                        empresa=empresa_actual,
+                        activo=usuario.activo
+                    )
+
+                    modulos = form.cleaned_data.get('modulos')
+                    if modulos:
+                        perfil.sistemas.set(modulos.values_list('sistema', flat=True).distinct())
+
+                        for modulo in modulos:
+                            PerfilModulo.objects.create(
+                                perfil=perfil,
+                                modulo=modulo,
+                                activo=True
+                            )
+
+                    messages.success(request, f'Usuario "{usuario.username}" creado correctamente.')
+                    return redirect('core:usuarios')
+
+            except Exception as e:
+                messages.error(request, f'No se pudo crear el usuario: {e}')
+        else:
+            messages.error(request, 'Corrige los errores del formulario.')
+    else:
+        form = UsuarioSistemaForm(empresa=empresa_actual)
+
+    return render(request, 'core/usuarios.html', {
+        'usuarios': usuarios,
+        'form': form,
+    })

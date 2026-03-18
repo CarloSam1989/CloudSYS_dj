@@ -97,5 +97,6 @@ urlpatterns = [
     path("inventario/ajax/agregar-categoria/", views.agregar_categoria_ajax, name="agregar_categoria_ajax"),
     path("inventario/ajax/agregar-marca/", views.agregar_marca_ajax, name="agregar_marca_ajax"),
     path("inventario/ajax/agregar-modelo/", views.agregar_modelo_ajax, name="agregar_modelo_ajax"),
+    path('usuarios/', views.usuarios_view, name='usuarios'),
 
 ]
