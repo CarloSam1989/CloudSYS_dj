@@ -1,240 +1,442 @@
-{% extends "cobros/base_cobros.html" %}
-{% load humanize %}
-
+{% extends "base.html" %}
 {% block title %}Préstamos{% endblock %}
 
 {% block content %}
 <style>
-    body.card-open {
-        overflow: hidden;
-    }
+        .estado-badge {
+            font-size: 0.95rem;
+            padding: 0.55rem 0.8rem;
+            border-radius: 999px;
+            font-weight: 600;
+            min-width: 110px;
+            display: inline-block;
+            text-align: center;
+        }
 
-    #cardFormularioPrestamo .card-body.oculto {
-        display: none;
-    }
+        .card-header-flex {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
 
-    #cardFormularioPrestamo.card-maximizada {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        right: 10px;
-        bottom: 10px;
-        z-index: 1080;
-        margin: 0 !important;
-        width: auto !important;
-        height: auto !important;
-        overflow: auto;
-        background: #fff;
-        box-shadow: 0 0 0 9999px rgba(0,0,0,.25);
-    }
+        .prestamo-form-collapsed .card-body {
+            display: none;
+        }
 
-    .acciones-btns .btn {
-        margin-right: 4px;
-        margin-bottom: 4px;
-    }
+        .prestamo-form-card {
+            transition: all 0.25s ease;
+        }
+
+        .table-prestamos th,
+        .table-prestamos td {
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .table-prestamos th.estado-col,
+        .table-prestamos td.estado-col {
+            min-width: 150px;
+        }
+
+        .table-prestamos th.acciones-col,
+        .table-prestamos td.acciones-col {
+            min-width: 120px;
+        }
+
+        @media (max-width: 768px) {
+            .estado-badge {
+                font-size: 0.85rem;
+                min-width: 95px;
+                padding: 0.45rem 0.65rem;
+            }
+        }
 </style>
+<div class="container-fluid px-4 mt-4">
 
-<div class="card mb-4 border-primary" id="cardFormularioPrestamo">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span>
-            <i class="fas fa-money-bill-wave me-2"></i>
-            Registrar Préstamo
-        </span>
-
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-light toggle-card" title="Minimizar">
-                <i class="fas fa-minus"></i>
-            </button>
-            <button type="button" class="btn btn-sm btn-light" id="btnMaximizarPrestamo" title="Maximizar">
-                <i class="fas fa-expand"></i>
-            </button>
-        </div>
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4">
+        <h2 class="mb-2 mb-md-0">Préstamos</h2>
+        <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Nuevo Préstamo</li>
+        </ol>
     </div>
 
-    <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
+    
 
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Cliente</label>
-                    {{ form.cliente }}
-                    {% if form.cliente.errors %}
-                        <div class="text-danger small">{{ form.cliente.errors }}</div>
-                    {% endif %}
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Fecha</label>
-                    {{ form.fecha }}
-                    {% if form.fecha.errors %}
-                        <div class="text-danger small">{{ form.fecha.errors }}</div>
-                    {% endif %}
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Estado</label>
-                    {{ form.estado }}
-                    {% if form.estado.errors %}
-                        <div class="text-danger small">{{ form.estado.errors }}</div>
-                    {% endif %}
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">Monto prestado</label>
-                    {{ form.monto }}
-                    {% if form.monto.errors %}
-                        <div class="text-danger small">{{ form.monto.errors }}</div>
-                    {% endif %}
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">Interés (%)</label>
-                    {{ form.interes }}
-                    {% if form.interes.errors %}
-                        <div class="text-danger small">{{ form.interes.errors }}</div>
-                    {% endif %}
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label fw-bold">Observación</label>
-                    {{ form.observacion }}
-                    {% if form.observacion.errors %}
-                        <div class="text-danger small">{{ form.observacion.errors }}</div>
-                    {% endif %}
-                </div>
-
-                {% if form.non_field_errors %}
-                <div class="col-12">
-                    <div class="alert alert-danger mb-0">
-                        {{ form.non_field_errors }}
-                    </div>
-                </div>
-                {% endif %}
-
-                <div class="col-12 d-flex justify-content-end gap-2">
-                    <button type="reset" class="btn btn-secondary">
-                        Limpiar
+    <!-- ========================= -->
+    <!-- FORMULARIO ARRIBA -->
+    <!-- ========================= -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4 prestamo-form-card" id="prestamoFormCard">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-plus-circle me-1"></i> Nuevo Préstamo
+                    </span>
+                    <button class="btn btn-sm btn-light toggle-card">
+                        <i class="fas fa-minus"></i>
                     </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save me-1"></i> Guardar
-                    </button>
+                </div>
+                <div class="card-body" id="prestamoFormBody">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="row">
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Fecha</label>
+                                {{ form.fecha }}
+                                {% if form.fecha.errors %}
+                                    <div class="text-danger small mt-1">{{ form.fecha.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Cliente</label>
+                                <div class="input-group">
+                                    {{ form.cliente }}
+                                    <button type="button" class="btn btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalCliente">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% if form.cliente.errors %}
+                                    <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-5 mb-3">
+                                <label class="form-label">Cuenta desembolso</label>
+                                <div class="input-group">
+                                    {{ form.cuenta_desembolso }}
+                                    <button type="button" class="btn btn-outline-success"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalCuenta">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% if form.cuenta_desembolso.errors %}
+                                    <div class="text-danger small mt-1">{{ form.cuenta_desembolso.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Monto</label>
+                                {{ form.monto }}
+                                {% if form.monto.errors %}
+                                    <div class="text-danger small mt-1">{{ form.monto.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Interés</label>
+                                {{ form.interes }}
+                                {% if form.interes.errors %}
+                                    <div class="text-danger small mt-1">{{ form.interes.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Tipo interés</label>
+                                {{ form.tipo_interes }}
+                                {% if form.tipo_interes.errors %}
+                                    <div class="text-danger small mt-1">{{ form.tipo_interes.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            {% if form.cuotas %}
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Cuotas</label>
+                                {{ form.cuotas }}
+                                {% if form.cuotas.errors %}
+                                    <div class="text-danger small mt-1">{{ form.cuotas.errors }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if form.frecuencia_dias %}
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Frecuencia</label>
+                                {{ form.frecuencia_dias }}
+                                {% if form.frecuencia_dias.errors %}
+                                    <div class="text-danger small mt-1">{{ form.frecuencia_dias.errors }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if form.fecha_vencimiento %}
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Fecha vencimiento</label>
+                                {{ form.fecha_vencimiento }}
+                                {% if form.fecha_vencimiento.errors %}
+                                    <div class="text-danger small mt-1">{{ form.fecha_vencimiento.errors }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Estado</label>
+                                {{ form.estado }}
+                                {% if form.estado.errors %}
+                                    <div class="text-danger small mt-1">{{ form.estado.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Observación</label>
+                                {{ form.observacion }}
+                                {% if form.observacion.errors %}
+                                    <div class="text-danger small mt-1">{{ form.observacion.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-12">
+                                <button class="btn btn-primary w-100" type="submit">
+                                    <i class="fas fa-save me-1"></i> Guardar préstamo
+                                </button>
+                            </div>
+
+                        </div>
+
+                    </form>
                 </div>
             </div>
-        </form>
+        </div>
     </div>
+
+    <!-- ========================= -->
+    <!-- TABLA ABAJO -->
+    <!-- ========================= -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">Listado</div>
+                <div class="card-body table-responsive">
+                    <table class="table table-sm table-bordered table-hover w-100 table-prestamos">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Cliente</th>
+                                <th>Monto</th>
+                                <th>Saldo</th>
+                                <th class="estado-col">Estado</th>
+                                <th class="acciones-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in prestamos %}
+                            <tr>
+                                <td>{{ p.numero }}</td>
+                                <td>{{ p.cliente }}</td>
+                                <td>{{ p.monto }}</td>
+                                <td>{{ p.saldo }}</td>
+                                <td class="estado-col">
+                                    {% if p.estado == "PAGADO" %}
+                                        <span class="badge bg-success estado-badge">{{ p.estado }}</span>
+                                    {% elif p.estado == "VENCIDO" %}
+                                        <span class="badge bg-danger estado-badge">{{ p.estado }}</span>
+                                    {% elif p.estado == "PENDIENTE" %}
+                                        <span class="badge bg-warning text-dark estado-badge">{{ p.estado }}</span>
+                                    {% elif p.estado == "ANULADO" %}
+                                        <span class="badge bg-secondary estado-badge">{{ p.estado }}</span>
+                                    {% else %}
+                                        <span class="badge bg-info text-dark estado-badge">{{ p.estado }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="acciones-col">
+                                    <a href="{% url 'cobros:pago_prestamo' p.id %}" 
+                                       class="btn btn-success btn-sm">
+                                        Cobrar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    No hay préstamos
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-header py-2 d-flex justify-content-between align-items-center">
-        <strong>Préstamos registrados</strong>
-        <small class="text-muted">Total: {{ prestamos|length }}</small>
-    </div>
-
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>#</th>
-                        <th>Número</th>
-                        <th>Cliente</th>
-                        <th>Monto</th>
-                        <th>Total</th>
-                        <th>Saldo</th>
-                        <th>Estado</th>
-                        <th>Fecha</th>
-                        <th class="text-end">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in prestamos %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td>{{ p.numero }}</td>
-                        <td>{{ p.cliente }}</td>
-                        <td>{{ p.monto|floatformat:2 }}</td>
-                        <td>{{ p.total|floatformat:2 }}</td>
-                        <td>{{ p.saldo|floatformat:2 }}</td>
-                        <td>
-                            {% if p.estado == 'ACTIVO' %}
-                                <span class="badge bg-primary">Activo</span>
-                            {% elif p.estado == 'PAGADO' %}
-                                <span class="badge bg-success">Pagado</span>
-                            {% elif p.estado == 'VENCIDO' %}
-                                <span class="badge bg-warning text-dark">Vencido</span>
-                            {% elif p.estado == 'ANULADO' %}
-                                <span class="badge bg-danger">Anulado</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ p.estado }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ p.fecha|date:"d/m/Y" }}</td>
-                        <td class="text-end acciones-btns">
-                            <a href="#" class="btn btn-sm btn-outline-primary" title="Ver detalle">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <a href="#" class="btn btn-sm btn-outline-success" title="Registrar abono">
-                                <i class="fas fa-money-check-dollar"></i>
-                            </a>
-                            <a href="#" class="btn btn-sm btn-outline-warning" title="Editar">
-                                <i class="fas fa-pen"></i>
-                            </a>
-                            <a href="#" class="btn btn-sm btn-outline-danger" title="Anular">
-                                <i class="fas fa-ban"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="9" class="text-center text-muted py-4">
-                            No hay préstamos registrados
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<!-- ========================= -->
+<!-- MODAL CLIENTE -->
+<!-- ========================= -->
+<div class="modal fade" id="modalCliente" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="nuevo_cliente_nombre" class="form-control mb-2" placeholder="Nombre">
+                <input type="text" id="nuevo_cliente_identificacion" class="form-control mb-2" placeholder="Identificación">
+                <input type="text" id="nuevo_cliente_telefono" class="form-control mb-2" placeholder="Teléfono">
+                <input type="text" id="nuevo_cliente_direccion" class="form-control mb-2" placeholder="Dirección">
+                <input type="email" id="nuevo_cliente_email" class="form-control mb-2" placeholder="Email">
+            </div>
+            <div class="modal-footer">
+                <button id="btnGuardarCliente" class="btn btn-primary" type="button">Guardar</button>
+            </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block javascript %}
+<!-- ========================= -->
+<!-- MODAL CUENTA -->
+<!-- ========================= -->
+<div class="modal fade" id="modalCuenta" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva cuenta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="nueva_cuenta_nombre" class="form-control mb-2" placeholder="Nombre">
+                <select id="nueva_cuenta_tipo" class="form-select mb-2">
+                    <option value="BANCO">Banco</option>
+                    <option value="CAJA">Caja</option>
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="BILLETERA">Billetera</option>
+                </select>
+                <input type="text" id="nueva_cuenta_banco" class="form-control mb-2" placeholder="Banco">
+                <input type="text" id="nueva_cuenta_numero" class="form-control mb-2" placeholder="Número">
+                <input type="text" id="nueva_cuenta_titular" class="form-control mb-2" placeholder="Titular">
+                <input type="number" id="nueva_cuenta_saldo" class="form-control mb-2" value="0">
+            </div>
+            <div class="modal-footer">
+                <button id="btnGuardarCuenta" class="btn btn-success" type="button">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const card = document.getElementById('cardFormularioPrestamo');
-    const body = card ? card.querySelector('.card-body') : null;
-    const btnMin = card ? card.querySelector('.toggle-card') : null;
-    const btnMax = document.getElementById('btnMaximizarPrestamo');
+    const prestamoFormCard = document.getElementById('prestamoFormCard');
+    const toggleFormularioBtn = document.getElementById('toggleFormularioBtn');
+    const toggleFormularioBtnHeader = document.getElementById('toggleFormularioBtnHeader');
 
-    if (btnMin && body) {
-        btnMin.addEventListener('click', function () {
-            body.classList.toggle('oculto');
+    function actualizarBotonesFormulario() {
+        const colapsado = prestamoFormCard.classList.contains('prestamo-form-collapsed');
 
-            if (body.classList.contains('oculto')) {
-                this.innerHTML = '<i class="fas fa-plus"></i>';
-                this.setAttribute('title', 'Expandir');
+        if (colapsado) {
+            toggleFormularioBtn.innerHTML = '<i class="fas fa-plus-circle me-1"></i> Maximizar formulario';
+            toggleFormularioBtnHeader.innerHTML = '<i class="fas fa-plus"></i>';
+        } else {
+            toggleFormularioBtn.innerHTML = '<i class="fas fa-minus-circle me-1"></i> Minimizar formulario';
+            toggleFormularioBtnHeader.innerHTML = '<i class="fas fa-minus"></i>';
+        }
+    }
+
+    function alternarFormulario() {
+        prestamoFormCard.classList.toggle('prestamo-form-collapsed');
+        actualizarBotonesFormulario();
+    }
+
+    if (toggleFormularioBtn) {
+        toggleFormularioBtn.addEventListener('click', alternarFormulario);
+    }
+
+    if (toggleFormularioBtnHeader) {
+        toggleFormularioBtnHeader.addEventListener('click', alternarFormulario);
+    }
+
+    actualizarBotonesFormulario();
+
+    const btnGuardarCliente = document.getElementById('btnGuardarCliente');
+    const btnGuardarCuenta = document.getElementById('btnGuardarCuenta');
+
+    if (btnGuardarCliente) {
+        btnGuardarCliente.addEventListener('click', async function () {
+            const response = await fetch("{% url 'cobros:ajax_cliente_crear' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({
+                    nombre: document.getElementById('nuevo_cliente_nombre').value,
+                    identificacion: document.getElementById('nuevo_cliente_identificacion').value,
+                    telefono: document.getElementById('nuevo_cliente_telefono').value,
+                    direccion: document.getElementById('nuevo_cliente_direccion').value,
+                    email: document.getElementById('nuevo_cliente_email').value
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                const select = document.getElementById('id_cliente');
+                const option = new Option(data.text, data.id, true, true);
+                select.add(option);
+                select.value = data.id;
+
+                const modalClienteEl = document.getElementById('modalCliente');
+                const modalCliente = bootstrap.Modal.getInstance(modalClienteEl);
+                if (modalCliente) {
+                    modalCliente.hide();
+                }
             } else {
-                this.innerHTML = '<i class="fas fa-minus"></i>';
-                this.setAttribute('title', 'Minimizar');
+                alert(data.detail || 'No se pudo crear el cliente.');
             }
         });
     }
 
-    if (btnMax && card) {
-        btnMax.addEventListener('click', function () {
-            card.classList.toggle('card-maximizada');
-            document.body.classList.toggle('card-open');
+    if (btnGuardarCuenta) {
+        btnGuardarCuenta.addEventListener('click', async function () {
+            const response = await fetch("{% url 'cobros:ajax_cuenta_crear' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({
+                    nombre: document.getElementById('nueva_cuenta_nombre').value,
+                    tipo: document.getElementById('nueva_cuenta_tipo').value,
+                    banco: document.getElementById('nueva_cuenta_banco').value,
+                    numero_cuenta: document.getElementById('nueva_cuenta_numero').value,
+                    titular: document.getElementById('nueva_cuenta_titular').value,
+                    saldo_actual: document.getElementById('nueva_cuenta_saldo').value
+                })
+            });
 
-            if (card.classList.contains('card-maximizada')) {
-                this.innerHTML = '<i class="fas fa-compress"></i>';
-                this.setAttribute('title', 'Restaurar');
+            const data = await response.json();
+
+            if (response.ok) {
+                const select = document.getElementById('id_cuenta_desembolso');
+                const option = new Option(data.text, data.id, true, true);
+                select.add(option);
+                select.value = data.id;
+
+                const modalCuentaEl = document.getElementById('modalCuenta');
+                const modalCuenta = bootstrap.Modal.getInstance(modalCuentaEl);
+                if (modalCuenta) {
+                    modalCuenta.hide();
+                }
             } else {
-                this.innerHTML = '<i class="fas fa-expand"></i>';
-                this.setAttribute('title', 'Maximizar');
+                alert(data.detail || 'No se pudo crear la cuenta.');
             }
         });
     }
 });
 </script>
+
 {% endblock %}

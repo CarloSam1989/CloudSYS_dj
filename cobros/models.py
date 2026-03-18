@@ -2,7 +2,8 @@ from django.db import models
 from django.conf import settings
 from decimal import Decimal
 from core.models import *
-
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 # ==============================
 # CATEGORÍAS DE COBRANZA
 # ==============================
@@ -200,6 +201,106 @@ class PromesaPago(models.Model):
 # ==============================
 # COBRANZA DE PRÉSTAMOS
 # ==============================
+class CuentaFinancieraCobro(models.Model):
+    TIPO_CHOICES = [
+        ('BANCO', 'Banco'),
+        ('CAJA', 'Caja'),
+        ('EFECTIVO', 'Efectivo'),
+        ('BILLETERA', 'Billetera'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='cuentas_financieras_cobro')
+    nombre = models.CharField(max_length=100)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='BANCO')
+    banco = models.CharField(max_length=100, blank=True, null=True)
+    numero_cuenta = models.CharField(max_length=50, blank=True, null=True)
+    titular = models.CharField(max_length=150, blank=True, null=True)
+    saldo_actual = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    activo = models.BooleanField(default=True)
+    observacion = models.TextField(blank=True, null=True)
+
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cuenta financiera"
+        verbose_name_plural = "Cuentas financieras"
+        unique_together = ('empresa', 'nombre')
+        indexes = [
+            models.Index(fields=['empresa', 'tipo', 'activo']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.get_tipo_display()})"
+
+class MovimientoCuentaCobro(models.Model):
+    TIPO_CHOICES = [
+        ('INGRESO', 'Ingreso'),
+        ('EGRESO', 'Egreso'),
+        ('TRANSFERENCIA_ENTRADA', 'Transferencia entrada'),
+        ('TRANSFERENCIA_SALIDA', 'Transferencia salida'),
+        ('AJUSTE_MAS', 'Ajuste más'),
+        ('AJUSTE_MENOS', 'Ajuste menos'),
+    ]
+
+    ORIGEN_CHOICES = [
+        ('PRESTAMO', 'Préstamo'),
+        ('COMPRA_FINANCIADA', 'Compra financiada'),
+        ('VENTA', 'Venta'),
+        ('COBRO', 'Cobro'),
+        ('OTRO', 'Otro'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='movimientos_cuenta_cobro')
+    cuenta = models.ForeignKey(CuentaFinancieraCobro, on_delete=models.PROTECT, related_name='movimientos')
+
+    fecha = models.DateTimeField(default=timezone.now)
+    tipo = models.CharField(max_length=25, choices=TIPO_CHOICES)
+    origen = models.CharField(max_length=25, choices=ORIGEN_CHOICES, default='OTRO')
+
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    saldo_anterior = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    saldo_nuevo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    referencia = models.CharField(max_length=100, blank=True, null=True)
+    observacion = models.TextField(blank=True, null=True)
+
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    anulado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Movimiento de cuenta"
+        verbose_name_plural = "Movimientos de cuentas"
+        ordering = ['fecha', 'id']
+        indexes = [
+            models.Index(fields=['empresa', 'cuenta', 'fecha']),
+        ]
+
+    def __str__(self):
+        return f"{self.cuenta.nombre} - {self.get_tipo_display()} - {self.monto}"
+
+    def save(self, *args, **kwargs):
+        es_nuevo = self.pk is None
+
+        if es_nuevo and self.cuenta_id:
+            saldo_actual = self.cuenta.saldo_actual or Decimal('0.00')
+            self.saldo_anterior = saldo_actual
+
+            if self.tipo in ['INGRESO', 'TRANSFERENCIA_ENTRADA', 'AJUSTE_MAS']:
+                self.saldo_nuevo = saldo_actual + self.monto
+            else:
+                if saldo_actual < self.monto:
+                    raise ValidationError(
+                        f"No hay saldo suficiente en la cuenta '{self.cuenta.nombre}'. "
+                        f"Disponible: {saldo_actual}, requerido: {self.monto}"
+                    )
+                self.saldo_nuevo = saldo_actual - self.monto
+
+        super().save(*args, **kwargs)
+
+        if es_nuevo and self.cuenta_id:
+            self.cuenta.saldo_actual = self.saldo_nuevo
+            self.cuenta.save(update_fields=['saldo_actual'])
+
 class PrestamoCobro(models.Model):
     ESTADO_CHOICES = [
         ('ACTIVO', 'Activo'),
@@ -208,14 +309,37 @@ class PrestamoCobro(models.Model):
         ('ANULADO', 'Anulado'),
     ]
 
+    TIPO_INTERES_CHOICES = [
+        ('MENSUAL', 'Mensual'),
+        ('ANUAL', 'Anual'),
+    ]
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='prestamos_cobro')
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='prestamos_cobro')
+    cuenta_desembolso = models.ForeignKey(
+        CuentaFinancieraCobro,
+        on_delete=models.PROTECT,
+        related_name='prestamos_desembolsados',
+        null=True,
+        blank=True
+    )
 
     numero = models.CharField(max_length=30)
     fecha = models.DateField()
+
     monto = models.DecimalField(max_digits=12, decimal_places=2)
     interes = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    tipo_interes = models.CharField(
+        max_length=10,
+        choices=TIPO_INTERES_CHOICES,
+        default='MENSUAL'
+    )
+
+    cuotas = models.PositiveIntegerField(default=1)
+    frecuencia_dias = models.PositiveIntegerField(default=30)
+    fecha_vencimiento = models.DateField(null=True, blank=True)
+
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    cuota_estimada = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     saldo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='ACTIVO')
@@ -235,6 +359,20 @@ class PrestamoCobro(models.Model):
     def __str__(self):
         return f"{self.numero} - {self.cliente}"
 
+    def calcular_total(self):
+        monto = self.monto or Decimal('0.00')
+        interes = self.interes or Decimal('0.00')
+
+        total = monto + (monto * interes / Decimal('100'))
+        return total.quantize(Decimal('0.01'))
+
+    def calcular_cuota_estimada(self):
+        total = self.calcular_total()
+        cuotas = self.cuotas or 1
+        if cuotas <= 0:
+            cuotas = 1
+        return (total / Decimal(cuotas)).quantize(Decimal('0.01'))
+    
 class MovimientoPrestamoCobro(models.Model):
     TIPO_CHOICES = [
         ('DESEMBOLSO', 'Desembolso'),
@@ -249,6 +387,13 @@ class MovimientoPrestamoCobro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='movimientos_prestamo_cobro')
     prestamo = models.ForeignKey(PrestamoCobro, on_delete=models.CASCADE, related_name='movimientos')
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='movimientos_prestamo_cobro')
+    cuenta = models.ForeignKey(
+        CuentaFinancieraCobro,
+        on_delete=models.PROTECT,
+        related_name='movimientos_prestamo',
+        null=True,
+        blank=True
+    )
 
     fecha = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
@@ -306,7 +451,7 @@ class MovimientoPrestamoCobro(models.Model):
                 self.prestamo.estado = 'PAGADO' if self.prestamo.saldo <= 0 else 'ACTIVO'
 
             self.prestamo.save(update_fields=['saldo', 'estado'])
-
+            
 # ==============================
 # COMPRAS FINANCIADAS
 # ==============================
@@ -429,3 +574,8 @@ class MovimientoCompraFinanciada(models.Model):
 
         if self.compra_id:
             self.compra.recalcular_saldo()
+
+# ==============================
+# CUENTAS FINANCIERAS / BANCOS
+# ==============================
+

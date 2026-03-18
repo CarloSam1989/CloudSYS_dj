@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Cobro préstamo{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h3>Registrar pago</h3>
+
+    <div class="card">
+        <div class="card-body">
+            <p><strong>Préstamo:</strong> {{ prestamo.numero }}</p>
+            <p><strong>Cliente:</strong> {{ prestamo.cliente }}</p>
+            <p><strong>Saldo:</strong> {{ prestamo.saldo }}</p>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+
+                <button class="btn btn-success">
+                    Registrar pago
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

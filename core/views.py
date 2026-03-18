@@ -197,11 +197,97 @@ def dashboard_view(request):
     if hasattr(request.user, 'perfil_cliente') and request.user.perfil_cliente is not None:
         return redirect('core:home_banking')
 
-    # Si es superusuario
-    if request.user.is_superuser:
-        return redirect('/admin/')
+    today = timezone.now()
 
-    # Usuario ERP
+    # ==========================================
+    # SUPERUSUARIO: entra al dashboard general
+    # ==========================================
+    if request.user.is_superuser:
+        total_vendido_mes = Factura.objects.filter(
+            fecha_emision__year=today.year,
+            fecha_emision__month=today.month
+        ).aggregate(total=Sum('importe_total'))['total'] or 0
+
+        total_comprado_mes = Compra.objects.filter(
+            fecha__year=today.year,
+            fecha__month=today.month,
+            estado='A'
+        ).aggregate(total=Sum('total'))['total'] or 0
+
+        stock_bajo = Producto.objects.filter(
+            stock__lt=5
+        ).count()
+
+        facturas_pendientes_sri = Factura.objects.filter(
+            estado_sri='P'
+        ).count()
+
+        indicadores = {
+            'total_vendido': f"{total_vendido_mes:,.2f}",
+            'total_comprado': f"{total_comprado_mes:,.2f}",
+            'stock_bajo': stock_bajo,
+            'facturas_pendientes': facturas_pendientes_sri,
+        }
+
+        fecha_inicio = today - relativedelta(months=5)
+        fecha_inicio = fecha_inicio.replace(day=1)
+
+        ventas_por_mes = Factura.objects.filter(
+            fecha_emision__gte=fecha_inicio
+        ).annotate(
+            mes=TruncMonth('fecha_emision')
+        ).values('mes').annotate(
+            total_ventas=Sum('importe_total')
+        ).order_by('mes')
+
+        compras_por_mes = Compra.objects.filter(
+            fecha__gte=fecha_inicio
+        ).annotate(
+            mes=TruncMonth('fecha')
+        ).values('mes').annotate(
+            total_compras=Sum('total')
+        ).order_by('mes')
+
+        ventas_dict = {
+            v['mes'].strftime('%b %Y'): float(v['total_ventas'])
+            for v in ventas_por_mes if v['mes']
+        }
+        compras_dict = {
+            c['mes'].strftime('%b %Y'): float(c['total_compras'])
+            for c in compras_por_mes if c['mes']
+        }
+
+        labels_grafico = [
+            (fecha_inicio + relativedelta(months=i)).strftime('%b %Y')
+            for i in range(6)
+        ]
+        data_ventas = [ventas_dict.get(label, 0) for label in labels_grafico]
+        data_compras = [compras_dict.get(label, 0) for label in labels_grafico]
+
+        grafico_data = {
+            "labels": labels_grafico,
+            "ventas": data_ventas,
+            "compras": data_compras,
+        }
+
+        clientes_nuevos_mes = Cliente.objects.filter(
+            fecha_creacion__year=today.year,
+            fecha_creacion__month=today.month
+        ).count()
+
+        context = {
+            'empresa': None,
+            'es_superadmin': True,
+            'indicadores': indicadores,
+            'clientes_nuevos': clientes_nuevos_mes,
+            'grafico_json': json.dumps(grafico_data),
+        }
+
+        return render(request, 'core/dashboard.html', context)
+
+    # ==========================================
+    # USUARIO ERP NORMAL
+    # ==========================================
     if not hasattr(request.user, 'perfil') or request.user.perfil is None:
         messages.error(request, 'Tu usuario no tiene perfil asignado.')
         logout(request)
@@ -218,7 +304,6 @@ def dashboard_view(request):
         return redirect('core:login')
 
     empresa_actual = request.user.perfil.empresa
-    today = timezone.now()
 
     total_vendido_mes = Factura.objects.filter(
         empresa=empresa_actual,
@@ -256,21 +341,34 @@ def dashboard_view(request):
     ventas_por_mes = Factura.objects.filter(
         empresa=empresa_actual,
         fecha_emision__gte=fecha_inicio
-    ).annotate(mes=TruncMonth('fecha_emision')).values('mes').annotate(
+    ).annotate(
+        mes=TruncMonth('fecha_emision')
+    ).values('mes').annotate(
         total_ventas=Sum('importe_total')
     ).order_by('mes')
 
     compras_por_mes = Compra.objects.filter(
         empresa=empresa_actual,
         fecha__gte=fecha_inicio
-    ).annotate(mes=TruncMonth('fecha')).values('mes').annotate(
+    ).annotate(
+        mes=TruncMonth('fecha')
+    ).values('mes').annotate(
         total_compras=Sum('total')
     ).order_by('mes')
 
-    ventas_dict = {v['mes'].strftime('%b %Y'): float(v['total_ventas']) for v in ventas_por_mes}
-    compras_dict = {c['mes'].strftime('%b %Y'): float(c['total_compras']) for c in compras_por_mes}
+    ventas_dict = {
+        v['mes'].strftime('%b %Y'): float(v['total_ventas'])
+        for v in ventas_por_mes if v['mes']
+    }
+    compras_dict = {
+        c['mes'].strftime('%b %Y'): float(c['total_compras'])
+        for c in compras_por_mes if c['mes']
+    }
 
-    labels_grafico = [(fecha_inicio + relativedelta(months=i)).strftime('%b %Y') for i in range(6)]
+    labels_grafico = [
+        (fecha_inicio + relativedelta(months=i)).strftime('%b %Y')
+        for i in range(6)
+    ]
     data_ventas = [ventas_dict.get(label, 0) for label in labels_grafico]
     data_compras = [compras_dict.get(label, 0) for label in labels_grafico]
 
@@ -288,12 +386,14 @@ def dashboard_view(request):
 
     context = {
         'empresa': empresa_actual,
+        'es_superadmin': False,
         'indicadores': indicadores,
         'clientes_nuevos': clientes_nuevos_mes,
         'grafico_json': json.dumps(grafico_data),
     }
 
     return render(request, 'core/dashboard.html', context)
+
 # ------------------------------
 # VISTAS DE MÓDULOS (PLACEHOLDERS)
 # ------------------------------

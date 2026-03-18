@@ -175,6 +175,7 @@ admin.site.register(Bitacora)
 admin.site.register(MovimientoInventario)
 admin.site.register(Modulo)
 admin.site.register(PerfilModulo)
+admin.site.register(EmpresaModulo)
 @admin.register(CuentaBancaria)
 class CuentaBancariaAdmin(admin.ModelAdmin):
     list_display = (

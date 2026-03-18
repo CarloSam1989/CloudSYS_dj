@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Cobros{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-4">
+
+    <h1 class="mb-4">Dashboard Cobros</h1>
+
+    <!-- 🔹 KPIs -->
+    <div class="row">
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-success border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Total Prestado</div>
+                    <h4>${{ total_prestado|default:"0.00" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Saldo Pendiente</div>
+                    <h4>${{ total_saldo|default:"0.00" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Cobrado Hoy</div>
+                    <h4>${{ cobrado_hoy|default:"0.00" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-danger border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Vencidos</div>
+                    <h4>{{ prestamos_vencidos|default:"0" }}</h4>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 🔹 CUENTAS -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Cuentas financieras</span>
+            <a href="{% url 'cobros:cuentas_financieras' %}" class="btn btn-sm btn-outline-primary">
+                Administrar
+            </a>
+        </div>
+
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>Cuenta</th>
+                        <th>Tipo</th>
+                        <th>Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cuentas %}
+                    <tr>
+                        <td>{{ c.nombre }}</td>
+                        <td>{{ c.get_tipo_display }}</td>
+                        <td><strong>${{ c.saldo_actual }}</strong></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">No hay cuentas registradas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 🔹 PRÉSTAMOS RECIENTES -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Préstamos recientes</span>
+            <a href="{% url 'cobros:prestamos' %}" class="btn btn-sm btn-outline-success">
+                Ver todos
+            </a>
+        </div>
+
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cliente</th>
+                        <th>Monto</th>
+                        <th>Saldo</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in prestamos %}
+                    <tr>
+                        <td>{{ p.numero }}</td>
+                        <td>{{ p.cliente }}</td>
+                        <td>${{ p.monto }}</td>
+                        <td>${{ p.saldo }}</td>
+                        <td>
+                            {% if p.estado == 'PAGADO' %}
+                                <span class="badge bg-success">Pagado</span>
+                            {% elif p.estado == 'VENCIDO' %}
+                                <span class="badge bg-danger">Vencido</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Activo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'cobros:pago_prestamo' p.id %}" 
+                               class="btn btn-sm btn-success">
+                                Cobrar
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No hay préstamos</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 🔹 ACCESOS RÁPIDOS -->
+    <div class="row">
+
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'cobros:prestamos' %}" class="btn btn-primary w-100">
+                Nuevo préstamo
+            </a>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'cobros:cuentas_financieras' %}" class="btn btn-dark w-100">
+                Crear cuenta
+            </a>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'cobros:cobros_del_dia' %}" class="btn btn-success w-100">
+                Cobros del día
+            </a>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'cobros:reportes_cobros' %}" class="btn btn-secondary w-100">
+                Reportes
+            </a>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

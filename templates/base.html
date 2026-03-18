@@ -24,7 +24,6 @@
         .navbar-brand img {
             object-fit: cover;
         }
-        /* Estilo especial para menú bancario */
         .sb-sidenav-dark .sb-sidenav-menu .nav-link.banking-link {
             color: #6fb3e0;
         }
@@ -34,11 +33,9 @@
         .start-collapsed .card-body {
             display: none;
         }
-
         .toggle-card {
             min-width: 32px;
         }
-
         .card-header {
             cursor: pointer;
         }
@@ -49,10 +46,13 @@
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
         <a class="navbar-brand ps-3" href="{% if user.perfil_cliente %}{% url 'home_banking' %}{% else %}{% url 'core:dashboard' %}{% endif %}">
             <img src="{% static 'img/logo.jpg' %}" alt="Logo" width="40" height="40" style="border-radius: 50%" />
-            <span class="d-none d-sm-inline">CLOUDCENTER</span> <span class="d-inline d-sm-none">SYSCLOUD</span> 
+            <span class="d-none d-sm-inline">CLOUDCENTER</span>
+            <span class="d-inline d-sm-none">SYSCLOUD</span>
         </a>
         
-        <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
+        <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!">
+            <i class="fas fa-bars"></i>
+        </button>
         
         <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0"></form>
         
@@ -60,20 +60,25 @@
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <span class="me-2 d-none d-lg-inline text-light small">{{ user.username|upper }}</span>
-                    <i class="fas fa-user fa-fw"></i> 
+                    <i class="fas fa-user fa-fw"></i>
                 </a>
+
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                     {% if user.perfil_cliente %}
                         <li><h6 class="dropdown-header">Cliente Bancario</h6></li>
-                    {% else %}
+                    {% elif user.is_superuser %}
+                        <li><h6 class="dropdown-header">Super Administrador</h6></li>
+                    {% elif user.perfil %}
                         <li><h6 class="dropdown-header">Empresa: {{ user.perfil.empresa.nombre }}</h6></li>
+                    {% else %}
+                        <li><h6 class="dropdown-header">Usuario del sistema</h6></li>
                     {% endif %}
                     
                     <li><hr class="dropdown-divider" /></li>
                     
                     {% if not user.perfil_cliente %}
-                    <li><a class="dropdown-item" href="{% url 'core:config_empresa' %}">Configuración</a></li>
-                    <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="{% url 'core:config_empresa' %}">Configuración</a></li>
+                        <li><hr class="dropdown-divider" /></li>
                     {% endif %}
                     
                     <li><a class="dropdown-item" href="{% url 'core:logout' %}">Cerrar Sesión</a></li>
@@ -112,7 +117,7 @@
 
                             <a class="nav-link" href="{% url 'core:dashboard' %}">
                                 <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                                Dashboard 
+                                Dashboard
                             </a>
 
                             <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePersonas" aria-expanded="false" aria-controls="collapsePersonas">
@@ -122,7 +127,7 @@
                             </a>
                             <div class="collapse" id="collapsePersonas" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
-                                    <a class="nav-link" href="{% url 'core:clientes' %}">Clientes</a> 
+                                    <a class="nav-link" href="{% url 'core:clientes' %}">Clientes</a>
                                     <a class="nav-link" href="{% url 'core:proveedores' %}">Proveedores</a>
                                 </nav>
                             </div>
@@ -149,39 +154,48 @@
                                 <div class="sb-nav-link-icon"><i class="fa-regular fa-credit-card"></i></div>
                                 Compras
                             </a>
+
                             <div class="sb-sidenav-menu-heading">SISTEMAS</div>
-                            {% if request.user.is_superuser or request.user.perfil.tiene_cobros %}
-                            
+
+                            {% if request.user.is_superuser %}
                                 <a class="nav-link" href="{% url 'cobros:lista_cobros' %}">
                                     <div class="sb-nav-link-icon"><i class="fa-solid fa-sack-dollar"></i></div>
                                     Sistema de Cobros
                                 </a>
-                            {% else %}  
-                                No tienes acceso a otros sistemas. Contacta al administrador para más información.
-
+                            {% elif request.user.perfil and request.user.perfil.tiene_cobros %}
+                                <a class="nav-link" href="{% url 'cobros:lista_cobros' %}">
+                                    <div class="sb-nav-link-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                                    Sistema de Cobros
+                                </a>
+                            {% else %}
+                                <div class="px-3 py-2 text-muted small">
+                                    No tienes acceso a otros sistemas. Contacta al administrador para más información.
+                                </div>
                             {% endif %}
 
                             {% if user.is_superuser %}
-                            <a class="nav-link" href="{% url 'core:backup_db' %}">
-                                <div class="sb-nav-link-icon">
-                                    <i class="fa-solid fa-database"></i>
-                                </div>
-                                Generar Backup
-                            </a>
+                                <a class="nav-link" href="{% url 'core:backup_db' %}">
+                                    <div class="sb-nav-link-icon">
+                                        <i class="fa-solid fa-database"></i>
+                                    </div>
+                                    Generar Backup
+                                </a>
 
-                            <a class="nav-link" href="{% url 'admin:index' %}">
-                                <div class="sb-nav-link-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
-                                Admin Panel
-                            </a>
+                                <a class="nav-link" href="{% url 'admin:index' %}">
+                                    <div class="sb-nav-link-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                                    Admin Panel
+                                </a>
                             {% endif %}
-                            {% if not user.perfil_cliente %}
+
+                            {% if user.is_superuser or user.perfil %}
                                 <a class="nav-link" href="{% url 'core:usuarios' %}">
                                     <div class="sb-nav-link-icon"><i class="fas fa-user-plus"></i></div>
                                     Usuarios
                                 </a>
                             {% endif %}
                         
-                        {% endif %} </div>
+                        {% endif %}
+                    </div>
                 </div>
                 
                 <div class="sb-sidenav-footer">
@@ -194,7 +208,6 @@
         <div id="layoutSidenav_content">
             <main>
                 {% block content %}
-       
                 {% endblock %}
             </main>
 
@@ -205,8 +218,12 @@
                         <div>
                             {% if user.perfil_cliente %}
                                 <span class="text-primary fw-bold">Banquito Online</span>
-                            {% else %}
+                            {% elif user.is_superuser %}
+                                <span class="text-muted">Super Administrador</span>
+                            {% elif user.perfil %}
                                 <span class="text-muted">{{ user.perfil.empresa.nombre }}</span>
+                            {% else %}
+                                <span class="text-muted">Sistema</span>
                             {% endif %}
                         </div>
                     </div>
@@ -224,6 +241,5 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     
     {% block javascript %}{% endblock %}
-
 </body>
 </html>

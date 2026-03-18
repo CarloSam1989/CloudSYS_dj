@@ -1,7 +1,10 @@
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
 from decimal import Decimal
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from .forms import *
 from .models import *
 import json
@@ -10,33 +13,44 @@ from django.views.decorators.http import require_POST
 
 @login_required
 def dashboard_cobros(request):
-    cobros = PrestamoCobro.objects.all().order_by('-id')
+    empresa = request.user.perfil.empresa
 
-    if request.method == 'POST':
-        form = PrestamoCobroForm(request.POST)
-        if form.is_valid():
-            cobro = form.save(commit=False)
-            cobro.usuario = request.user
-            cobro.numero = f"COB-{PrestamoCobro.objects.count() + 1:06d}"
+    prestamos = PrestamoCobro.objects.filter(
+        empresa=empresa
+    ).order_by('-id')[:10]
 
-            monto = cobro.monto or Decimal('0.00')
-            interes = cobro.interes or Decimal('0.00')
+    total_prestado = PrestamoCobro.objects.filter(
+        empresa=empresa
+    ).aggregate(total=models.Sum('monto'))['total'] or 0
 
-            cobro.total = monto + (monto * interes / Decimal('100'))
-            cobro.saldo = cobro.total
+    total_saldo = PrestamoCobro.objects.filter(
+        empresa=empresa
+    ).aggregate(total=models.Sum('saldo'))['total'] or 0
 
-            # Si tu modelo requiere empresa:
-            # cobro.empresa = request.user.empresa
+    hoy = timezone.now().date()
 
-            cobro.save()
-            messages.success(request, 'Operación registrada correctamente.')
-            return redirect('cobros:lista_cobros')
-    else:
-        form = PrestamoCobroForm()
+    cobrado_hoy = MovimientoPrestamoCobro.objects.filter(
+        empresa=empresa,
+        fecha__date=hoy,
+        tipo='CUOTA'
+    ).aggregate(total=models.Sum('monto'))['total'] or 0
 
-    return render(request, 'cobros/cobros.html', {
-        'form': form,
-        'cobros': cobros,
+    prestamos_vencidos = PrestamoCobro.objects.filter(
+        empresa=empresa,
+        estado='VENCIDO'
+    ).count()
+
+    cuentas = CuentaFinancieraCobro.objects.filter(
+        empresa=empresa
+    )
+
+    return render(request, 'cobros/dashboard.html', {
+        'prestamos': prestamos,
+        'total_prestado': total_prestado,
+        'total_saldo': total_saldo,
+        'cobrado_hoy': cobrado_hoy,
+        'prestamos_vencidos': prestamos_vencidos,
+        'cuentas': cuentas,
     })
 
 @login_required
@@ -45,8 +59,80 @@ def cuentas_por_cobrar(request):
 
 @login_required
 def prestamos_cobros(request):
-    return render(request, 'cobros/prestamos.html')
+    empresa_actual = request.user.perfil.empresa
 
+    prestamos = PrestamoCobro.objects.filter(
+        empresa=empresa_actual
+    ).select_related('cliente', 'usuario', 'cuenta_desembolso').order_by('-id')
+
+    if request.method == 'POST':
+        form = PrestamoCobroForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    prestamo = form.save(commit=False)
+                    prestamo.empresa = empresa_actual
+                    prestamo.usuario = request.user
+                    prestamo.numero = f"PRE-{PrestamoCobro.objects.filter(empresa=empresa_actual).count() + 1:06d}"
+
+                    prestamo.total = prestamo.calcular_total()
+                    prestamo.cuota_estimada = prestamo.calcular_cuota_estimada()
+                    prestamo.saldo = prestamo.total
+
+                    if not prestamo.fecha_vencimiento:
+                        prestamo.fecha_vencimiento = prestamo.fecha + timedelta(
+                            days=(prestamo.cuotas * prestamo.frecuencia_dias)
+                        )
+
+                    cuenta = prestamo.cuenta_desembolso
+                    monto_desembolso = prestamo.monto or Decimal('0.00')
+
+                    if cuenta and cuenta.saldo_actual < monto_desembolso:
+                        messages.error(
+                            request,
+                            f"No hay saldo suficiente en la cuenta {cuenta.nombre}."
+                        )
+                        return redirect('cobros:prestamos')
+
+                    prestamo.save()
+
+                    MovimientoPrestamoCobro.objects.create(
+                        empresa=empresa_actual,
+                        prestamo=prestamo,
+                        cliente=prestamo.cliente,
+                        cuenta=cuenta,
+                        tipo='DESEMBOLSO',
+                        monto=prestamo.total,
+                        saldo_anterior=Decimal('0.00'),
+                        saldo_nuevo=prestamo.total,
+                        usuario=request.user,
+                        observacion='Registro inicial del préstamo'
+                    )
+
+                    if cuenta:
+                        MovimientoCuentaCobro.objects.create(
+                            empresa=empresa_actual,
+                            cuenta=cuenta,
+                            tipo='EGRESO',
+                            origen='PRESTAMO',
+                            monto=monto_desembolso,
+                            referencia=prestamo.numero,
+                            observacion=f'Desembolso del préstamo {prestamo.numero}',
+                            usuario=request.user,
+                        )
+
+                    messages.success(request, 'Préstamo registrado correctamente.')
+                    return redirect('cobros:prestamos')
+
+            except Exception as e:
+                messages.error(request, f'No se pudo registrar el préstamo: {e}')
+    else:
+        form = PrestamoCobroForm()
+
+    return render(request, 'cobros/prestamos.html', {
+        'form': form,
+        'prestamos': prestamos,
+    })
 
 @login_required
 @require_POST
@@ -66,7 +152,7 @@ def ajax_cliente_crear(request):
                 status=400
             )
 
-        empresa = request.user.empresa
+        empresa = request.user.perfil.empresa
 
         cliente = Cliente.objects.create(
             empresa=empresa,
@@ -85,7 +171,6 @@ def ajax_cliente_crear(request):
     except Exception as e:
         return JsonResponse({"detail": str(e)}, status=400)
 
-
 @login_required
 @require_POST
 def ajax_categoria_crear(request):
@@ -99,7 +184,7 @@ def ajax_categoria_crear(request):
                 status=400
             )
 
-        empresa = request.user.empresa
+        empresa = request.user.perfil.empresa
 
         categoria, creada = CategoriaCobro.objects.get_or_create(
             empresa=empresa,
@@ -119,7 +204,6 @@ def ajax_categoria_crear(request):
     except Exception as e:
         return JsonResponse({"detail": str(e)}, status=400)
 
-
 @login_required
 @require_POST
 def ajax_metodo_pago_crear(request):
@@ -133,7 +217,7 @@ def ajax_metodo_pago_crear(request):
                 status=400
             )
 
-        empresa = request.user.empresa
+        empresa = request.user.perfil.empresa
 
         metodo = MetodoPago.objects.create(
             empresa=empresa,
@@ -145,9 +229,9 @@ def ajax_metodo_pago_crear(request):
             "text": metodo.nombre,
         })
 
-    except Exception as e: 
+    except Exception as e:
         return JsonResponse({"detail": str(e)}, status=400)
-    
+
 @login_required
 def compras_financiadas(request):
     compras = CompraFinanciada.objects.filter(
@@ -223,40 +307,73 @@ def reportes_cobros(request):
 
 @login_required
 def prestamos_cobros(request):
+    empresa_actual = request.user.perfil.empresa
+
     prestamos = PrestamoCobro.objects.filter(
-        empresa=request.user.empresa
-    ).select_related('cliente', 'usuario').order_by('-id')
+        empresa=empresa_actual
+    ).select_related('cliente', 'usuario', 'cuenta_desembolso').order_by('-id')
 
     if request.method == 'POST':
         form = PrestamoCobroForm(request.POST)
         if form.is_valid():
-            prestamo = form.save(commit=False)
-            prestamo.empresa = request.user.empresa
-            prestamo.usuario = request.user
-            prestamo.numero = f"PRE-{PrestamoCobro.objects.filter(empresa=request.user.empresa).count() + 1:06d}"
+            try:
+                with transaction.atomic():
+                    prestamo = form.save(commit=False)
+                    prestamo.empresa = empresa_actual
+                    prestamo.usuario = request.user
+                    prestamo.numero = f"PRE-{PrestamoCobro.objects.filter(empresa=empresa_actual).count() + 1:06d}"
 
-            monto = prestamo.monto or Decimal('0.00')
-            interes = prestamo.interes or Decimal('0.00')
+                    prestamo.total = prestamo.calcular_total()
+                    prestamo.cuota_estimada = prestamo.calcular_cuota_estimada()
+                    prestamo.saldo = prestamo.total
 
-            prestamo.total = monto + (monto * interes / Decimal('100'))
-            prestamo.saldo = prestamo.total
+                    if not prestamo.fecha_vencimiento:
+                        prestamo.fecha_vencimiento = prestamo.fecha + timedelta(
+                            days=(prestamo.cuotas * prestamo.frecuencia_dias)
+                        )
 
-            prestamo.save()
+                    cuenta = prestamo.cuenta_desembolso
+                    monto_desembolso = prestamo.monto or Decimal('0.00')
 
-            MovimientoPrestamoCobro.objects.create(
-                empresa=request.user.empresa,
-                prestamo=prestamo,
-                cliente=prestamo.cliente,
-                tipo='DESEMBOLSO',
-                monto=prestamo.total,
-                saldo_anterior=Decimal('0.00'),
-                saldo_nuevo=prestamo.total,
-                usuario=request.user,
-                observacion='Desembolso inicial del préstamo'
-            )
+                    if cuenta and cuenta.saldo_actual < monto_desembolso:
+                        messages.error(
+                            request,
+                            f"No hay saldo suficiente en la cuenta {cuenta.nombre}."
+                        )
+                        return redirect('cobros:prestamos')
 
-            messages.success(request, 'Préstamo registrado correctamente.')
-            return redirect('cobros:prestamos')
+                    prestamo.save()
+
+                    MovimientoPrestamoCobro.objects.create(
+                        empresa=empresa_actual,
+                        prestamo=prestamo,
+                        cliente=prestamo.cliente,
+                        cuenta=cuenta,
+                        tipo='DESEMBOLSO',
+                        monto=prestamo.total,
+                        saldo_anterior=Decimal('0.00'),
+                        saldo_nuevo=prestamo.total,
+                        usuario=request.user,
+                        observacion='Registro inicial del préstamo'
+                    )
+
+                    if cuenta:
+                        MovimientoCuentaCobro.objects.create(
+                            empresa=empresa_actual,
+                            cuenta=cuenta,
+                            tipo='EGRESO',
+                            origen='PRESTAMO',
+                            monto=monto_desembolso,
+                            referencia=prestamo.numero,
+                            observacion=f'Desembolso del préstamo {prestamo.numero}',
+                            usuario=request.user,
+                        )
+
+                    messages.success(request, 'Préstamo registrado correctamente.')
+                    return redirect('cobros:prestamos')
+
+            except Exception as e:
+                messages.error(request, f'No se pudo registrar el préstamo: {e}')
     else:
         form = PrestamoCobroForm()
 
@@ -264,3 +381,116 @@ def prestamos_cobros(request):
         'form': form,
         'prestamos': prestamos,
     })
+
+@login_required
+def cuentas_financieras_cobro(request):
+    empresa_actual = request.user.perfil.empresa
+
+    cuentas = CuentaFinancieraCobro.objects.filter(
+        empresa=empresa_actual
+    ).order_by('nombre')
+
+    if request.method == 'POST':
+        form = CuentaFinancieraCobroForm(request.POST)
+        if form.is_valid():
+            cuenta = form.save(commit=False)
+            cuenta.empresa = empresa_actual
+            cuenta.save()
+            messages.success(request, 'Cuenta registrada correctamente.')
+            return redirect('cobros:cuentas_financieras')
+    else:
+        form = CuentaFinancieraCobroForm()
+
+    return render(request, 'cobros/cuentas.html', {
+        'form': form,
+        'cuentas': cuentas,
+    })
+
+@login_required
+def registrar_pago_prestamo(request, pk):
+    empresa_actual = request.user.perfil.empresa
+
+    prestamo = get_object_or_404(
+        PrestamoCobro,
+        pk=pk,
+        empresa=empresa_actual
+    )
+
+    if request.method == 'POST':
+        form = MovimientoPrestamoCobroForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    movimiento = form.save(commit=False)
+                    movimiento.empresa = empresa_actual
+                    movimiento.prestamo = prestamo
+                    movimiento.cliente = prestamo.cliente
+                    movimiento.usuario = request.user
+                    movimiento.tipo = 'CUOTA'
+                    movimiento.save()
+
+                    # INGRESO A CUENTA
+                    if movimiento.cuenta:
+                        MovimientoCuentaCobro.objects.create(
+                            empresa=empresa_actual,
+                            cuenta=movimiento.cuenta,
+                            tipo='INGRESO',
+                            origen='COBRO',
+                            monto=movimiento.monto,
+                            referencia=prestamo.numero,
+                            observacion=f'Pago préstamo {prestamo.numero}',
+                            usuario=request.user,
+                        )
+
+                    messages.success(request, 'Pago registrado correctamente.')
+                    return redirect('cobros:prestamos')
+
+            except Exception as e:
+                messages.error(request, f'Error: {e}')
+    else:
+        form = MovimientoPrestamoCobroForm()
+
+    return render(request, 'cobros/movimiento_prestamo.html', {
+        'form': form,
+        'prestamo': prestamo
+    })
+
+@login_required
+@require_POST
+def ajax_cuenta_crear(request):
+    try:
+        data = json.loads(request.body)
+
+        nombre = (data.get("nombre") or "").strip()
+        tipo = (data.get("tipo") or "BANCO").strip()
+        banco = (data.get("banco") or "").strip()
+        numero_cuenta = (data.get("numero_cuenta") or "").strip()
+        titular = (data.get("titular") or "").strip()
+        saldo_actual = data.get("saldo_actual") or 0
+
+        if not nombre:
+            return JsonResponse(
+                {"errors": {"nombre": ["El nombre de la cuenta es obligatorio."]}},
+                status=400
+            )
+
+        empresa = request.user.perfil.empresa
+
+        cuenta = CuentaFinancieraCobro.objects.create(
+            empresa=empresa,
+            nombre=nombre,
+            tipo=tipo,
+            banco=banco if banco else None,
+            numero_cuenta=numero_cuenta if numero_cuenta else None,
+            titular=titular if titular else None,
+            saldo_actual=saldo_actual or 0,
+            activo=True,
+        )
+
+        return JsonResponse({
+            "id": cuenta.id,
+            "text": str(cuenta.nombre),
+        })
+
+    except Exception as e:
+        return JsonResponse({"detail": str(e)}, status=400)

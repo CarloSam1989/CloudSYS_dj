@@ -47,8 +47,10 @@ class PrestamoCobroForm(forms.ModelForm):
         fields = [
             'fecha',
             'cliente',
+            'cuenta_desembolso',
             'monto',
             'interes',
+            'tipo_interes',
             'estado',
             'observacion',
         ]
@@ -58,7 +60,12 @@ class PrestamoCobroForm(forms.ModelForm):
                 'type': 'date'
             }),
             'cliente': forms.Select(attrs={
-                'class': 'form-select form-select-sm'
+                'class': 'form-select form-select-sm',
+                'id': 'id_cliente'
+            }),
+            'cuenta_desembolso': forms.Select(attrs={
+                'class': 'form-select form-select-sm',
+                'id': 'id_cuenta_desembolso'
             }),
             'monto': forms.NumberInput(attrs={
                 'class': 'form-control form-control-sm',
@@ -68,6 +75,10 @@ class PrestamoCobroForm(forms.ModelForm):
                 'class': 'form-control form-control-sm',
                 'step': '0.01'
             }),
+            'tipo_interes': forms.Select(attrs={
+                'class': 'form-select form-select-sm',
+                'id': 'id_tipo_interes'
+            }),
             'estado': forms.Select(attrs={
                 'class': 'form-select form-select-sm'
             }),
@@ -75,6 +86,30 @@ class PrestamoCobroForm(forms.ModelForm):
                 'class': 'form-control form-control-sm',
                 'rows': 2
             }),
+        }
+        
+class CuentaFinancieraCobroForm(forms.ModelForm):
+    class Meta:
+        model = CuentaFinancieraCobro
+        fields = [
+            'nombre',
+            'tipo',
+            'banco',
+            'numero_cuenta',
+            'titular',
+            'saldo_actual',
+            'activo',
+            'observacion',
+        ]
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'tipo': forms.Select(attrs={'class': 'form-select form-select-sm'}),
+            'banco': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'numero_cuenta': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'titular': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'saldo_actual': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': '0.01'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'observacion': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 2}),
         }
 
 class MovimientoPrestamoCobroForm(forms.ModelForm):
