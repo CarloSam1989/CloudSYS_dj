@@ -5,421 +5,167 @@
 <style>
     .card-header-flex {
         display: flex;
-        align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        align-items: center;
     }
 
     .cuenta-form-collapsed .card-body {
         display: none;
     }
 
-    .cuenta-form-card {
-        transition: all 0.25s ease;
-    }
-
-    .table-cuentas th,
-    .table-cuentas td {
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-
-    .table-cuentas th.saldo-col,
-    .table-cuentas td.saldo-col {
-        min-width: 140px;
-    }
-
     .cuenta-badge {
-        font-size: 0.90rem;
-        padding: 0.50rem 0.75rem;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.7rem;
         border-radius: 999px;
         font-weight: 600;
-        display: inline-block;
-        text-align: center;
-    }
-
-    @media (max-width: 768px) {
-        .cuenta-badge {
-            font-size: 0.82rem;
-            padding: 0.42rem 0.60rem;
-        }
     }
 </style>
 
 <div class="container-fluid px-4 mt-4">
 
-    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4">
-        <h2 class="mb-2 mb-md-0">Cuentas financieras</h2>
-        <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item">
-                <a href="{% url 'core:dashboard' %}">Dashboard</a>
-            </li>
-            <li class="breadcrumb-item active">Cuentas financieras</li>
-        </ol>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Cuentas financieras</h2>
+        <button class="btn btn-outline-primary" id="toggleCuentaBtn">
+            <i class="fas fa-minus"></i>
+        </button>
     </div>
 
     <!-- ========================= -->
-    <!-- FORMULARIO ARRIBA -->
+    <!-- FORMULARIO -->
     <!-- ========================= -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm mb-4 cuenta-form-card" id="cuentaFormCard">
-                <div class="card-header card-header-flex">
-                    <span>
-                        <i class="fas fa-wallet me-1"></i> Nueva cuenta
-                    </span>
-                    <button class="btn btn-sm btn-light" type="button" id="toggleCuentaBtn">
-                        <i class="fas fa-minus"></i>
-                    </button>
-                </div>
+    <div class="card shadow-sm mb-4 cuenta-form-card" id="cuentaFormCard">
+        <div class="card-header card-header-flex">
+            <span><i class="fas fa-wallet me-1"></i> Nueva cuenta</span>
+        </div>
 
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
 
-                        {% if form.non_field_errors %}
-                            <div class="alert alert-danger">
-                                {{ form.non_field_errors }}
-                            </div>
-                        {% endif %}
+                <div class="row">
 
-                        <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label>Nombre</label>
+                        {{ form.nombre }}
+                    </div>
 
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">{{ form.fecha.label }}</label>
-                                {{ form.fecha }}
-                                {% if form.fecha.errors %}
-                                    <div class="text-danger small mt-1">{{ form.fecha.errors }}</div>
-                                {% endif %}
-                            </div>
+                    <div class="col-md-3 mb-3">
+                        <label>Tipo</label>
+                        {{ form.tipo }}
+                    </div>
 
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Cliente</label>
-                                <div class="input-group">
-                                    {{ form.cliente }}
-                                    <button type="button"
-                                            class="btn btn-outline-primary"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#modalCliente">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                                {% if form.cliente.errors %}
-                                    <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
-                                {% endif %}
-                            </div>
+                    <div class="col-md-5 mb-3">
+                        <label>Banco</label>
+                        {{ form.banco }}
+                    </div>
 
-                            <div class="col-md-5 mb-3">
-                                <label class="form-label">Cuenta de desembolso</label>
-                                <div class="input-group">
-                                    {{ form.cuenta_desembolso }}
-                                    <button type="button"
-                                            class="btn btn-outline-success"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#modalCuenta">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                                {% if form.cuenta_desembolso.errors %}
-                                    <div class="text-danger small mt-1">{{ form.cuenta_desembolso.errors }}</div>
-                                {% endif %}
-                            </div>
+                    <div class="col-md-4 mb-3">
+                        <label>Número de cuenta</label>
+                        {{ form.numero_cuenta }}
+                    </div>
 
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">{{ form.monto.label }}</label>
-                                {{ form.monto }}
-                                {% if form.monto.errors %}
-                                    <div class="text-danger small mt-1">{{ form.monto.errors }}</div>
-                                {% endif %}
-                            </div>
+                    <div class="col-md-4 mb-3">
+                        <label>Titular</label>
+                        {{ form.titular }}
+                    </div>
 
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">{{ form.interes.label }}</label>
-                                {{ form.interes }}
-                                {% if form.interes.errors %}
-                                    <div class="text-danger small mt-1">{{ form.interes.errors }}</div>
-                                {% endif %}
-                            </div>
+                    <div class="col-md-4 mb-3">
+                        <label>Saldo inicial</label>
+                        {{ form.saldo_actual }}
+                    </div>
 
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Tipo de interés</label>
-                                {{ form.tipo_interes }}
-                                {% if form.tipo_interes.errors %}
-                                    <div class="text-danger small mt-1">{{ form.tipo_interes.errors }}</div>
-                                {% endif %}
-                            </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Observación</label>
+                        {{ form.observacion }}
+                    </div>
 
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">{{ form.estado.label }}</label>
-                                {{ form.estado }}
-                                {% if form.estado.errors %}
-                                    <div class="text-danger small mt-1">{{ form.estado.errors }}</div>
-                                {% endif %}
-                            </div>
-
-                            <div class="col-md-12 mb-3">
-                                <label class="form-label">{{ form.observacion.label }}</label>
-                                {{ form.observacion }}
-                                {% if form.observacion.errors %}
-                                    <div class="text-danger small mt-1">{{ form.observacion.errors }}</div>
-                                {% endif %}
-                            </div>
-
-                            <div class="col-md-12">
-                                <button class="btn btn-primary w-100" type="submit">
-                                    <i class="fas fa-save me-1"></i> Guardar cuenta
-                                </button>
-                            </div>
-
+                    <div class="col-md-2 mb-3 d-flex align-items-center">
+                        <div class="form-check mt-3">
+                            {{ form.activo }}
+                            <label class="form-check-label ms-1">Activa</label>
                         </div>
-                    </form>
+                    </div>
+
+                    <div class="col-md-12">
+                        <button class="btn btn-primary w-100">
+                            <i class="fas fa-save me-1"></i> Guardar cuenta
+                        </button>
+                    </div>
+
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
     <!-- ========================= -->
-    <!-- LISTADO ABAJO -->
+    <!-- LISTADO -->
     <!-- ========================= -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-list me-1"></i> Listado
-                </div>
-                <div class="card-body table-responsive">
-                    <table class="table table-sm table-bordered table-hover w-100 table-cuentas">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Tipo</th>
-                                <th class="saldo-col">Saldo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in cuentas %}
-                            <tr>
-                                <td>{{ c.nombre }}</td>
-                                <td>
-                                    <span class="badge bg-info text-dark cuenta-badge">
-                                        {{ c.tipo }}
-                                    </span>
-                                </td>
-                                <td class="saldo-col">
-                                    <strong>${{ c.saldo_actual }}</strong>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center">
-                                    No hay cuentas
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-list me-1"></i> Listado
+        </div>
+
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-bordered table-hover w-100">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Banco</th>
+                        <th>Titular</th>
+                        <th>Saldo</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for c in cuentas %}
+                    <tr>
+                        <td>{{ c.nombre }}</td>
+                        <td>
+                            <span class="badge bg-info text-dark cuenta-badge">
+                                {{ c.tipo }}
+                            </span>
+                        </td>
+                        <td>{{ c.banco }}</td>
+                        <td>{{ c.titular }}</td>
+                        <td><strong>${{ c.saldo_actual }}</strong></td>
+                        <td>
+                            {% if c.activo %}
+                                <span class="badge bg-success cuenta-badge">Activa</span>
+                            {% else %}
+                                <span class="badge bg-danger cuenta-badge">Inactiva</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            No hay cuentas registradas
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            </table>
         </div>
     </div>
 
-</div>
-
-<!-- ========================= -->
-<!-- MODAL CLIENTE -->
-<!-- ========================= -->
-<div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nuevo cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-2">
-                    <label class="form-label">Nombre</label>
-                    <input type="text" id="nuevo_cliente_nombre" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Identificación</label>
-                    <input type="text" id="nuevo_cliente_identificacion" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Teléfono</label>
-                    <input type="text" id="nuevo_cliente_telefono" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Dirección</label>
-                    <input type="text" id="nuevo_cliente_direccion" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Email</label>
-                    <input type="email" id="nuevo_cliente_email" class="form-control">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" id="btnGuardarCliente" class="btn btn-primary">
-                    Guardar cliente
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ========================= -->
-<!-- MODAL CUENTA -->
-<!-- ========================= -->
-<div class="modal fade" id="modalCuenta" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nueva cuenta</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-2">
-                    <label class="form-label">Nombre</label>
-                    <input type="text" id="nueva_cuenta_nombre" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Tipo</label>
-                    <select id="nueva_cuenta_tipo" class="form-select">
-                        <option value="BANCO">Banco</option>
-                        <option value="CAJA">Caja</option>
-                        <option value="EFECTIVO">Efectivo</option>
-                        <option value="BILLETERA">Billetera</option>
-                    </select>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Banco</label>
-                    <input type="text" id="nueva_cuenta_banco" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Número de cuenta</label>
-                    <input type="text" id="nueva_cuenta_numero" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Titular</label>
-                    <input type="text" id="nueva_cuenta_titular" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Saldo inicial</label>
-                    <input type="number" step="0.01" id="nueva_cuenta_saldo" class="form-control" value="0">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" id="btnGuardarCuenta" class="btn btn-success">
-                    Guardar cuenta
-                </button>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const cuentaFormCard = document.getElementById('cuentaFormCard');
-    const toggleCuentaBtn = document.getElementById('toggleCuentaBtn');
+    const card = document.getElementById('cuentaFormCard');
+    const btn = document.getElementById('toggleCuentaBtn');
 
-    function actualizarIconoFormulario() {
-        const colapsado = cuentaFormCard.classList.contains('cuenta-form-collapsed');
-        toggleCuentaBtn.innerHTML = colapsado
+    btn.addEventListener('click', function () {
+        card.classList.toggle('cuenta-form-collapsed');
+
+        btn.innerHTML = card.classList.contains('cuenta-form-collapsed')
             ? '<i class="fas fa-plus"></i>'
             : '<i class="fas fa-minus"></i>';
-    }
-
-    if (toggleCuentaBtn) {
-        toggleCuentaBtn.addEventListener('click', function () {
-            cuentaFormCard.classList.toggle('cuenta-form-collapsed');
-            actualizarIconoFormulario();
-        });
-    }
-
-    actualizarIconoFormulario();
-
-    const btnGuardarCliente = document.getElementById('btnGuardarCliente');
-    const btnGuardarCuenta = document.getElementById('btnGuardarCuenta');
-
-    if (btnGuardarCliente) {
-        btnGuardarCliente.addEventListener('click', async function () {
-            const payload = {
-                nombre: document.getElementById('nuevo_cliente_nombre').value,
-                identificacion: document.getElementById('nuevo_cliente_identificacion').value,
-                telefono: document.getElementById('nuevo_cliente_telefono').value,
-                direccion: document.getElementById('nuevo_cliente_direccion').value,
-                email: document.getElementById('nuevo_cliente_email').value
-            };
-
-            const response = await fetch("{% url 'cobros:ajax_cliente_crear' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": "{{ csrf_token }}"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                const select = document.getElementById('id_cliente');
-                if (select) {
-                    const option = new Option(data.text, data.id, true, true);
-                    select.add(option);
-                    select.value = data.id;
-                }
-
-                const modalEl = document.getElementById('modalCliente');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) {
-                    modal.hide();
-                }
-            } else {
-                alert(data.detail || 'No se pudo crear el cliente.');
-            }
-        });
-    }
-
-    if (btnGuardarCuenta) {
-        btnGuardarCuenta.addEventListener('click', async function () {
-            const payload = {
-                nombre: document.getElementById('nueva_cuenta_nombre').value,
-                tipo: document.getElementById('nueva_cuenta_tipo').value,
-                banco: document.getElementById('nueva_cuenta_banco').value,
-                numero_cuenta: document.getElementById('nueva_cuenta_numero').value,
-                titular: document.getElementById('nueva_cuenta_titular').value,
-                saldo_actual: document.getElementById('nueva_cuenta_saldo').value
-            };
-
-            const response = await fetch("{% url 'cobros:ajax_cuenta_crear' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": "{{ csrf_token }}"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                const select = document.getElementById('id_cuenta_desembolso');
-                if (select) {
-                    const option = new Option(data.text, data.id, true, true);
-                    select.add(option);
-                    select.value = data.id;
-                }
-
-                const modalEl = document.getElementById('modalCuenta');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) {
-                    modal.hide();
-                }
-            } else {
-                alert(data.detail || 'No se pudo crear la cuenta.');
-            }
-        });
-    }
+    });
 });
 </script>
+
 {% endblock %}

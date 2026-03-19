@@ -234,17 +234,19 @@ def ajax_metodo_pago_crear(request):
 
 @login_required
 def compras_financiadas(request):
+    empresa_actual = request.user.perfil.empresa
+
     compras = CompraFinanciada.objects.filter(
-        empresa=request.user.empresa
+        empresa=empresa_actual
     ).order_by('-id')
 
     if request.method == 'POST':
         form = CompraFinanciadaForm(request.POST)
         if form.is_valid():
             compra = form.save(commit=False)
-            compra.empresa = request.user.empresa
+            compra.empresa = empresa_actual
             compra.usuario = request.user
-            compra.numero = f"CF-{CompraFinanciada.objects.filter(empresa=request.user.empresa).count() + 1:06d}"
+            compra.numero = f"CF-{CompraFinanciada.objects.filter(empresa=empresa_actual).count() + 1:06d}"
 
             monto = compra.monto_producto or Decimal('0.00')
             cuota_inicial = compra.cuota_inicial or Decimal('0.00')
@@ -262,7 +264,7 @@ def compras_financiadas(request):
 
             # Registrar cargo inicial
             MovimientoCompraFinanciada.objects.create(
-                empresa=request.user.empresa,
+                empresa=empresa_actual,
                 compra=compra,
                 cliente=compra.cliente,
                 tipo='CARGO_INICIAL',
@@ -276,7 +278,7 @@ def compras_financiadas(request):
             # Registrar cuota inicial si aplica
             if cuota_inicial > 0:
                 MovimientoCompraFinanciada.objects.create(
-                    empresa=request.user.empresa,
+                    empresa=empresa_actual,
                     compra=compra,
                     cliente=compra.cliente,
                     tipo='ABONO_EXTRA',
@@ -299,11 +301,163 @@ def compras_financiadas(request):
 
 @login_required
 def cobros_del_dia(request):
-    return render(request, 'cobros/cobros_del_dia.html')
+    empresa = request.user.perfil.empresa
+    hoy = timezone.localdate()
+
+    cobros_prestamos = MovimientoPrestamoCobro.objects.filter(
+        empresa=empresa,
+        fecha__date=hoy,
+        anulado=False,
+        tipo__in=['CUOTA', 'ABONO_CAPITAL', 'AJUSTE_ABONO']
+    ).select_related(
+        'prestamo', 'cliente', 'cuenta', 'metodo_pago', 'usuario'
+    ).order_by('-fecha')
+
+    cobros_compras = MovimientoCompraFinanciada.objects.filter(
+        empresa=empresa,
+        fecha__date=hoy,
+        anulado=False,
+        tipo__in=['CUOTA', 'ABONO_EXTRA', 'AJUSTE_ABONO']
+    ).select_related(
+        'compra', 'cliente', 'metodo_pago', 'usuario'
+    ).order_by('-fecha')
+
+    total_prestamos = cobros_prestamos.aggregate(
+        total=Sum('monto')
+    )['total'] or 0
+
+    total_compras = cobros_compras.aggregate(
+        total=Sum('monto')
+    )['total'] or 0
+
+    total_cobrado_hoy = total_prestamos + total_compras
+
+    total_movimientos = cobros_prestamos.count() + cobros_compras.count()
+
+    return render(request, 'cobros/cobros_del_dia.html', {
+        'fecha_hoy': hoy,
+        'cobros_prestamos': cobros_prestamos,
+        'cobros_compras': cobros_compras,
+        'total_prestamos': total_prestamos,
+        'total_compras': total_compras,
+        'total_cobrado_hoy': total_cobrado_hoy,
+        'total_movimientos': total_movimientos,
+    })
 
 @login_required
 def reportes_cobros(request):
-    return render(request, 'cobros/reportes.html')
+    empresa = request.user.perfil.empresa
+    hoy = timezone.localdate()
+    inicio_mes = hoy.replace(day=1)
+    ultimos_30_dias = hoy - timedelta(days=30)
+
+    total_prestado = PrestamoCobro.objects.filter(
+        empresa=empresa
+    ).aggregate(total=Sum('monto'))['total'] or 0
+
+    total_saldo_prestamos = PrestamoCobro.objects.filter(
+        empresa=empresa
+    ).aggregate(total=Sum('saldo'))['total'] or 0
+
+    prestamos_activos = PrestamoCobro.objects.filter(
+        empresa=empresa,
+        estado='ACTIVO'
+    ).count()
+
+    prestamos_pagados = PrestamoCobro.objects.filter(
+        empresa=empresa,
+        estado='PAGADO'
+    ).count()
+
+    prestamos_vencidos = PrestamoCobro.objects.filter(
+        empresa=empresa,
+        estado='VENCIDO'
+    ).count()
+
+    total_compras_financiadas = CompraFinanciada.objects.filter(
+        empresa=empresa
+    ).aggregate(total=Sum('monto_producto'))['total'] or 0
+
+    saldo_compras_financiadas = CompraFinanciada.objects.filter(
+        empresa=empresa
+    ).aggregate(total=Sum('saldo'))['total'] or 0
+
+    compras_activas = CompraFinanciada.objects.filter(
+        empresa=empresa,
+        estado='ACTIVA'
+    ).count()
+
+    compras_pagadas = CompraFinanciada.objects.filter(
+        empresa=empresa,
+        estado='PAGADA'
+    ).count()
+
+    ingresos_cuentas_mes = MovimientoCuentaCobro.objects.filter(
+        empresa=empresa,
+        fecha__date__gte=inicio_mes,
+        anulado=False,
+        tipo__in=['INGRESO', 'TRANSFERENCIA_ENTRADA', 'AJUSTE_MAS']
+    ).aggregate(total=Sum('monto'))['total'] or 0
+
+    egresos_cuentas_mes = MovimientoCuentaCobro.objects.filter(
+        empresa=empresa,
+        fecha__date__gte=inicio_mes,
+        anulado=False,
+        tipo__in=['EGRESO', 'TRANSFERENCIA_SALIDA', 'AJUSTE_MENOS']
+    ).aggregate(total=Sum('monto'))['total'] or 0
+
+    cobrado_30_dias_prestamos = MovimientoPrestamoCobro.objects.filter(
+        empresa=empresa,
+        fecha__date__gte=ultimos_30_dias,
+        anulado=False,
+        tipo__in=['CUOTA', 'ABONO_CAPITAL', 'AJUSTE_ABONO']
+    ).aggregate(total=Sum('monto'))['total'] or 0
+
+    cobrado_30_dias_compras = MovimientoCompraFinanciada.objects.filter(
+        empresa=empresa,
+        fecha__date__gte=ultimos_30_dias,
+        anulado=False,
+        tipo__in=['CUOTA', 'ABONO_EXTRA', 'AJUSTE_ABONO']
+    ).aggregate(total=Sum('monto'))['total'] or 0
+
+    total_cobrado_30_dias = cobrado_30_dias_prestamos + cobrado_30_dias_compras
+
+    cuentas = CuentaFinancieraCobro.objects.filter(
+        empresa=empresa
+    ).order_by('nombre')
+
+    movimientos_recientes_prestamos = MovimientoPrestamoCobro.objects.filter(
+        empresa=empresa,
+        anulado=False
+    ).select_related('prestamo', 'cliente', 'cuenta').order_by('-fecha')[:10]
+
+    movimientos_recientes_compras = MovimientoCompraFinanciada.objects.filter(
+        empresa=empresa,
+        anulado=False
+    ).select_related('compra', 'cliente').order_by('-fecha')[:10]
+
+    return render(request, 'cobros/reportes.html', {
+        'hoy': hoy,
+        'inicio_mes': inicio_mes,
+        'ultimos_30_dias': ultimos_30_dias,
+        'total_prestado': total_prestado,
+        'total_saldo_prestamos': total_saldo_prestamos,
+        'prestamos_activos': prestamos_activos,
+        'prestamos_pagados': prestamos_pagados,
+        'prestamos_vencidos': prestamos_vencidos,
+        'total_compras_financiadas': total_compras_financiadas,
+        'saldo_compras_financiadas': saldo_compras_financiadas,
+        'compras_activas': compras_activas,
+        'compras_pagadas': compras_pagadas,
+        'ingresos_cuentas_mes': ingresos_cuentas_mes,
+        'egresos_cuentas_mes': egresos_cuentas_mes,
+        'cobrado_30_dias_prestamos': cobrado_30_dias_prestamos,
+        'cobrado_30_dias_compras': cobrado_30_dias_compras,
+        'total_cobrado_30_dias': total_cobrado_30_dias,
+        'cuentas': cuentas,
+        'movimientos_recientes_prestamos': movimientos_recientes_prestamos,
+        'movimientos_recientes_compras': movimientos_recientes_compras,
+    })
 
 @login_required
 def prestamos_cobros(request):
@@ -418,6 +572,16 @@ def registrar_pago_prestamo(request, pk):
 
     if request.method == 'POST':
         form = MovimientoPrestamoCobroForm(request.POST)
+
+        # filtrar opciones por empresa
+        form.fields['cuenta'].queryset = CuentaFinancieraCobro.objects.filter(
+            empresa=empresa_actual,
+            activo=True
+        )
+        form.fields['metodo_pago'].queryset = MetodoPago.objects.filter(
+            empresa=empresa_actual
+        )
+
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -429,7 +593,6 @@ def registrar_pago_prestamo(request, pk):
                     movimiento.tipo = 'CUOTA'
                     movimiento.save()
 
-                    # INGRESO A CUENTA
                     if movimiento.cuenta:
                         MovimientoCuentaCobro.objects.create(
                             empresa=empresa_actual,
@@ -446,13 +609,71 @@ def registrar_pago_prestamo(request, pk):
                     return redirect('cobros:prestamos')
 
             except Exception as e:
-                messages.error(request, f'Error: {e}')
+                messages.error(request, f'Error al registrar pago: {e}')
+        else:
+            messages.error(request, f'Formulario inválido: {form.errors}')
     else:
         form = MovimientoPrestamoCobroForm()
+        form.fields['cuenta'].queryset = CuentaFinancieraCobro.objects.filter(
+            empresa=empresa_actual,
+            activo=True
+        )
+        form.fields['metodo_pago'].queryset = MetodoPago.objects.filter(
+            empresa=empresa_actual
+        )
 
     return render(request, 'cobros/movimiento_prestamo.html', {
         'form': form,
         'prestamo': prestamo
+    })
+
+@login_required
+def registrar_pago_compra(request, pk):
+    empresa_actual = request.user.perfil.empresa
+
+    compra = get_object_or_404(
+        CompraFinanciada,
+        pk=pk,
+        empresa=empresa_actual
+    )
+
+    if request.method == 'POST':
+        form = MovimientoCompraFinanciadaForm(request.POST)
+
+        # filtrar métodos de pago por empresa
+        if 'metodo_pago' in form.fields:
+            form.fields['metodo_pago'].queryset = MetodoPago.objects.filter(
+                empresa=empresa_actual
+            )
+
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    movimiento = form.save(commit=False)
+                    movimiento.empresa = empresa_actual
+                    movimiento.compra = compra
+                    movimiento.cliente = compra.cliente
+                    movimiento.usuario = request.user
+                    movimiento.tipo = 'CUOTA'
+                    movimiento.save()
+
+                    messages.success(request, 'Pago de compra registrado correctamente.')
+                    return redirect('cobros:compras_financiadas')
+
+            except Exception as e:
+                messages.error(request, f'Error al registrar el pago: {e}')
+        else:
+            messages.error(request, f'Formulario inválido: {form.errors}')
+    else:
+        form = MovimientoCompraFinanciadaForm()
+        if 'metodo_pago' in form.fields:
+            form.fields['metodo_pago'].queryset = MetodoPago.objects.filter(
+                empresa=empresa_actual
+            )
+
+    return render(request, 'cobros/movimiento_compra.html', {
+        'form': form,
+        'compra': compra,
     })
 
 @login_required

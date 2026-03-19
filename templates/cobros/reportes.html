@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Reportes de cobros{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-4">
+
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4">
+        <h1 class="mb-2 mb-md-0">Reportes de cobros</h1>
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{% url 'cobros:lista_cobros' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Reportes</li>
+        </ol>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-success border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Total prestado</div>
+                    <h4>${{ total_prestado|default:"0.00" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Saldo préstamos</div>
+                    <h4>${{ total_saldo_prestamos|default:"0.00" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-info border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Cobrado últimos 30 días</div>
+                    <h4>${{ total_cobrado_30_dias|default:"0.00" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="text-muted small">Desde</div>
+                    <h5>{{ ultimos_30_dias }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">Estado de préstamos</div>
+                <div class="card-body">
+                    <p><strong>Activos:</strong> {{ prestamos_activos }}</p>
+                    <p><strong>Pagados:</strong> {{ prestamos_pagados }}</p>
+                    <p class="mb-0"><strong>Vencidos:</strong> {{ prestamos_vencidos }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">Compras financiadas</div>
+                <div class="card-body">
+                    <p><strong>Total financiado:</strong> ${{ total_compras_financiadas|default:"0.00" }}</p>
+                    <p><strong>Saldo pendiente:</strong> ${{ saldo_compras_financiadas|default:"0.00" }}</p>
+                    <p><strong>Activas:</strong> {{ compras_activas }}</p>
+                    <p class="mb-0"><strong>Pagadas:</strong> {{ compras_pagadas }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">Movimientos de cuentas este mes</div>
+                <div class="card-body">
+                    <p><strong>Ingresos:</strong> ${{ ingresos_cuentas_mes|default:"0.00" }}</p>
+                    <p class="mb-0"><strong>Egresos:</strong> ${{ egresos_cuentas_mes|default:"0.00" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Cuentas financieras</div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Banco</th>
+                        <th>Titular</th>
+                        <th>Saldo</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cuentas %}
+                    <tr>
+                        <td>{{ c.nombre }}</td>
+                        <td>{{ c.get_tipo_display }}</td>
+                        <td>{{ c.banco|default:"-" }}</td>
+                        <td>{{ c.titular|default:"-" }}</td>
+                        <td><strong>${{ c.saldo_actual }}</strong></td>
+                        <td>
+                            {% if c.activo %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactiva</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No hay cuentas registradas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Cobros recientes de préstamos</div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Préstamo</th>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Monto</th>
+                        <th>Cuenta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimientos_recientes_prestamos %}
+                    <tr>
+                        <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ m.prestamo.numero }}</td>
+                        <td>{{ m.cliente }}</td>
+                        <td>{{ m.get_tipo_display }}</td>
+                        <td>${{ m.monto }}</td>
+                        <td>{% if m.cuenta %}{{ m.cuenta.nombre }}{% else %}-{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No hay movimientos recientes</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Cobros recientes de compras financiadas</div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Compra</th>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimientos_recientes_compras %}
+                    <tr>
+                        <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ m.compra.numero }}</td>
+                        <td>{{ m.cliente }}</td>
+                        <td>{{ m.get_tipo_display }}</td>
+                        <td>${{ m.monto }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No hay movimientos recientes</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

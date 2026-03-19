@@ -18,4 +18,6 @@ urlpatterns = [
     path('ajax/cuentas/crear/', views.ajax_cuenta_crear, name='ajax_cuenta_crear'),
     path('ajax/categorias/crear/', views.ajax_categoria_crear, name='ajax_categoria_crear'),
     path('ajax/metodos-pago/crear/', views.ajax_metodo_pago_crear, name='ajax_metodo_pago_crear'),
+
+    path('compras-financiadas/pago/<int:pk>/', views.registrar_pago_compra, name='pago_compra')
 ]

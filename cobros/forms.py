@@ -155,19 +155,19 @@ class MovimientoPrestamoCobroForm(forms.ModelForm):
     class Meta:
         model = MovimientoPrestamoCobro
         fields = [
-            'tipo',
             'monto',
+            'cuenta',
             'metodo_pago',
             'referencia',
             'observacion',
         ]
         widgets = {
-            'tipo': forms.Select(attrs={
-                'class': 'form-select form-select-sm'
-            }),
             'monto': forms.NumberInput(attrs={
                 'class': 'form-control form-control-sm',
                 'step': '0.01'
+            }),
+            'cuenta': forms.Select(attrs={
+                'class': 'form-select form-select-sm'
             }),
             'metodo_pago': forms.Select(attrs={
                 'class': 'form-select form-select-sm'
@@ -185,16 +185,24 @@ class MovimientoCompraFinanciadaForm(forms.ModelForm):
     class Meta:
         model = MovimientoCompraFinanciada
         fields = [
-            'tipo',
             'monto',
             'metodo_pago',
             'referencia',
             'observacion',
         ]
         widgets = {
-            'tipo': forms.Select(attrs={'class': 'form-select form-select-sm'}),
-            'monto': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': '0.01'}),
-            'metodo_pago': forms.Select(attrs={'class': 'form-select form-select-sm'}),
-            'referencia': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
-            'observacion': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 2}),
+            'monto': forms.NumberInput(attrs={
+                'class': 'form-control form-control-sm',
+                'step': '0.01'
+            }),
+            'metodo_pago': forms.Select(attrs={
+                'class': 'form-select form-select-sm'
+            }),
+            'referencia': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm'
+            }),
+            'observacion': forms.Textarea(attrs={
+                'class': 'form-control form-control-sm',
+                'rows': 2
+            }),
         }

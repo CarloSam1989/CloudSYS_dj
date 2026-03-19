@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block title %}Compras financiadas{% endblock %}
+
+{% block content %}
+<style>
+    .estado-badge {
+        font-size: 0.95rem;
+        padding: 0.55rem 0.8rem;
+        border-radius: 999px;
+        font-weight: 600;
+        min-width: 110px;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .compra-form-card {
+        transition: all 0.25s ease;
+    }
+
+    .compra-form-collapsed .card-body {
+        display: none;
+    }
+
+    .table-compras th,
+    .table-compras td {
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .table-compras th.estado-col,
+    .table-compras td.estado-col {
+        min-width: 150px;
+    }
+
+    .table-compras th.acciones-col,
+    .table-compras td.acciones-col {
+        min-width: 160px;
+    }
+
+    .resumen-card .card-body h4,
+    .resumen-card .card-body h5 {
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 768px) {
+        .estado-badge {
+            font-size: 0.85rem;
+            min-width: 95px;
+            padding: 0.45rem 0.65rem;
+        }
+    }
+</style>
+
+<div class="container-fluid px-4 mt-4">
+
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4">
+        <div>
+            <h2 class="mb-2 mb-md-0">Compras financiadas</h2>
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{% url 'cobros:lista_cobros' %}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Compras financiadas</li>
+            </ol>
+        </div>
+
+        <div class="mt-3 mt-md-0 d-flex flex-wrap gap-2">
+            <a href="{% url 'cobros:cobros_del_dia' %}" class="btn btn-outline-primary">
+                <i class="fas fa-calendar-day me-1"></i> Cobros del día
+            </a>
+            <a href="{% url 'cobros:reportes_cobros' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-chart-bar me-1"></i> Reportes
+            </a>
+        </div>
+    </div>
+
+    <!-- RESUMEN -->
+    <div class="row">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-success border-4 resumen-card">
+                <div class="card-body">
+                    <div class="text-muted small">Compras registradas</div>
+                    <h4>{{ compras|length }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-primary border-4 resumen-card">
+                <div class="card-body">
+                    <div class="text-muted small">Total financiado</div>
+                    <h4>
+                        $
+                        {% if compras %}
+                            {{ compras.0.total|default:"0.00" }}
+                        {% else %}
+                            0.00
+                        {% endif %}
+                    </h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-warning border-4 resumen-card">
+                <div class="card-body">
+                    <div class="text-muted small">Pendientes</div>
+                    <h4>{{ compras_pendientes|default:"0" }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-start border-info border-4 resumen-card">
+                <div class="card-body">
+                    <div class="text-muted small">Pagadas</div>
+                    <h4>{{ compras_pagadas|default:"0" }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMULARIO -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4 compra-form-card" id="compraFormCard">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-plus-circle me-1"></i> Nueva compra financiada
+                    </span>
+                    <button class="btn btn-sm btn-light" type="button" id="toggleCompraForm">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+
+                <div class="card-body" id="compraFormBody">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="row">
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Fecha</label>
+                                {{ form.fecha }}
+                                {% if form.fecha.errors %}
+                                    <div class="text-danger small mt-1">{{ form.fecha.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Cliente</label>
+                                {{ form.cliente }}
+                                {% if form.cliente.errors %}
+                                    <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Descripción</label>
+                                {{ form.descripcion }}
+                                {% if form.descripcion.errors %}
+                                    <div class="text-danger small mt-1">{{ form.descripcion.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Monto producto</label>
+                                {{ form.monto_producto }}
+                                {% if form.monto_producto.errors %}
+                                    <div class="text-danger small mt-1">{{ form.monto_producto.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Cuota inicial</label>
+                                {{ form.cuota_inicial }}
+                                {% if form.cuota_inicial.errors %}
+                                    <div class="text-danger small mt-1">{{ form.cuota_inicial.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Interés %</label>
+                                {{ form.interes }}
+                                {% if form.interes.errors %}
+                                    <div class="text-danger small mt-1">{{ form.interes.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Cuotas</label>
+                                {{ form.cuotas }}
+                                {% if form.cuotas.errors %}
+                                    <div class="text-danger small mt-1">{{ form.cuotas.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Frecuencia días</label>
+                                {{ form.frecuencia_dias }}
+                                {% if form.frecuencia_dias.errors %}
+                                    <div class="text-danger small mt-1">{{ form.frecuencia_dias.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Estado</label>
+                                {{ form.estado }}
+                                {% if form.estado.errors %}
+                                    <div class="text-danger small mt-1">{{ form.estado.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-9 mb-3">
+                                <label class="form-label">Observación</label>
+                                {{ form.observacion }}
+                                {% if form.observacion.errors %}
+                                    <div class="text-danger small mt-1">{{ form.observacion.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-12">
+                                <button class="btn btn-primary w-100" type="submit">
+                                    <i class="fas fa-save me-1"></i> Guardar compra financiada
+                                </button>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Listado de compras financiadas</span>
+                    <span class="text-muted small">Gestiona y da seguimiento a los cobros</span>
+                </div>
+
+                <div class="card-body table-responsive">
+                    <table class="table table-sm table-bordered table-hover w-100 table-compras">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Descripción</th>
+                                <th>Monto</th>
+                                <th>Total</th>
+                                <th>Abonado</th>
+                                <th>Saldo</th>
+                                <th class="estado-col">Estado</th>
+                                <th class="acciones-col">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in compras %}
+                            <tr>
+                                <td>{{ c.numero }}</td>
+                                <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                                <td>{{ c.cliente }}</td>
+                                <td>{{ c.descripcion }}</td>
+                                <td>${{ c.monto_producto }}</td>
+                                <td>${{ c.total }}</td>
+                                <td>${{ c.total_abonado }}</td>
+                                <td><strong>${{ c.saldo }}</strong></td>
+                                <td class="estado-col">
+                                    {% if c.estado == "PAGADA" %}
+                                        <span class="badge bg-success estado-badge">{{ c.estado }}</span>
+                                    {% elif c.estado == "VENCIDA" %}
+                                        <span class="badge bg-danger estado-badge">{{ c.estado }}</span>
+                                    {% elif c.estado == "ACTIVA" %}
+                                        <span class="badge bg-warning text-dark estado-badge">{{ c.estado }}</span>
+                                    {% elif c.estado == "ANULADA" %}
+                                        <span class="badge bg-secondary estado-badge">{{ c.estado }}</span>
+                                    {% else %}
+                                        <span class="badge bg-info text-dark estado-badge">{{ c.estado }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="acciones-col">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {# 
+                                        Cuando exista la ruta real, usar algo así:
+                                        <a href="{% url 'cobros:pago_compra' c.id %}" class="btn btn-sm btn-warning text-dark">
+                                            Cobrar
+                                        </a>
+                                        #}
+
+                                        <a href="{% url 'cobros:pago_compra' c.id %}" class="btn btn-sm btn-warning text-dark">
+                                            Cobrar
+                                        </a>
+
+                                        <a href="{% url 'cobros:cobros_del_dia' %}" class="btn btn-sm btn-outline-primary">
+                                            Ver cobros
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center">
+                                    No hay compras financiadas registradas
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggleBtn = document.getElementById('toggleCompraForm');
+    const formCard = document.getElementById('compraFormCard');
+    const formBody = document.getElementById('compraFormBody');
+
+    if (toggleBtn && formCard && formBody) {
+        toggleBtn.addEventListener('click', function () {
+            formCard.classList.toggle('compra-form-collapsed');
+
+            const icon = toggleBtn.querySelector('i');
+            if (formCard.classList.contains('compra-form-collapsed')) {
+                formBody.style.display = 'none';
+                if (icon) {
+                    icon.classList.remove('fa-minus');
+                    icon.classList.add('fa-plus');
+                }
+            } else {
+                formBody.style.display = '';
+                if (icon) {
+                    icon.classList.remove('fa-plus');
+                    icon.classList.add('fa-minus');
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
